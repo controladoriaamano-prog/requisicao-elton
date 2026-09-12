@@ -522,6 +522,7 @@ body.tem-setor .req-card{border-left-color:var(--setor-cor,#1a237e)!important}
   <div class="header-right">
     <div class="user-chip" onclick="logout()">👤 <span id="nomeUsuarioHeader">—</span> · Sair</div>
     <div class="sync-status sync-connecting" id="syncStatusEl"><span class="pulse-dot"></span> Conectando...</div>
+    <div id="offlineBadge" style="display:none;background:#fff8e1;color:#e65100;border:1px solid #ffcc80;border-radius:10px;padding:3px 9px;font-size:.7rem;font-weight:800;cursor:pointer" onclick="flushOutbox()" title="Toque para sincronizar agora">📴 0 pendentes</div>
     <div style="display:flex;align-items:center;gap:0">
       <button class="notif-bell-btn" id="installBtn" onclick="mostrarPromptInstalar(true)" title="Baixar app na área de trabalho" style="display:none">📲</button>
       <button class="notif-bell-btn" id="chatBtn" onclick="abrirChat()" title="Mensagem ao Estoque (Elton)" style="display:none">💬
@@ -1196,6 +1197,7 @@ const DATA = {"REFEITORIO":[{"categoria":"MERCEARIA","itens":[{"cod":"M14","nome
 // CONFIG & FIREBASE — Credenciais fixas (projeto requisicao-elton)
 // ================================================================
 let db = null;
+let dbConectado = true;          // conexão em tempo real com o Firebase
 let isMaster = false;
 let usuarioAtual = null;
 let setorUsuario = null;
@@ -1240,16 +1242,12 @@ function initFirebase(cfg) {
     db = firebase.database();
     // Testa conexão
     db.ref('.info/connected').on('value', snap => {
-      const connected = snap.val();
-      const el = document.getElementById('syncStatusEl');
-      if (el) {
-        if (connected) {
-          el.className = 'sync-status sync-online';
-          el.innerHTML = '<span class="pulse-dot"></span> Online — Sync ativo';
-        } else {
-          el.className = 'sync-status sync-offline';
-          el.textContent = '⚠️ Offline — reconectando...';
-        }
+      const connected = !!snap.val();
+      dbConectado = connected;
+      atualizarStatusConexao();
+      if (connected) {
+        // Voltou a internet -> envia tudo que ficou na fila
+        setTimeout(() => { try { flushOutbox(); } catch(e) {} }, 600);
       }
     });
     document.getElementById('setupScreen').style.display = 'none';
@@ -1372,6 +1370,10 @@ function entrar(nome, setor) {
   const installBtn = document.getElementById('installBtn'); if (installBtn) installBtn.style.display = 'flex';
   if (db) { escutarDevolucoes(); iniciarChatListeners(); }
   if (isJersonName(nome)) { renderDevLista(); }
+  atualizarStatusConexao();
+  atualizarBadgeOffline();
+  carregarSnapshotsOffline();  // abre instantâneo com os últimos dados salvos (offline-friendly)
+  setTimeout(flushOutbox, 2500);
   setTimeout(() => mostrarPromptInstalar(false), 2600);
 
   // Salva recentes
@@ -1438,6 +1440,7 @@ function escutarRequisicoes() {
     }
 
     reqsSnapshot = data;
+    try { cacheSnap('reqs', data); } catch(e) {}
 
     // ---- Inicializa mapa de status para FUNC ----
     if (!isMaster && setorUsuario && usuarioAtual) {
@@ -1767,6 +1770,7 @@ function escutarAvisos() {
 
     const oldCount = avisosMasterList.length;
     avisosMasterList = novaLista;
+    try { cacheSnap('avisos', novaLista); } catch(e) {}
 
     // Filtrar avisos relevantes para este usuário (operador)
     const avisosParaMim = novaLista.filter(av => {
@@ -2135,6 +2139,22 @@ function darBaixa(reqId, itemKey, status) {
   const cur = reqsSnapshot[reqId]?.baixas?.[itemKey]?.status;
   const novoStatus = cur === status ? '' : status;
 
+  if (db && !podeEnviar()) {
+    // 📴 Offline: aplica local e enfileira para sincronizar depois
+    if (!reqsSnapshot[reqId].baixas) reqsSnapshot[reqId].baixas = {};
+    reqsSnapshot[reqId].baixas[itemKey] = reqsSnapshot[reqId].baixas[itemKey] || {};
+    reqsSnapshot[reqId].baixas[itemKey].status = novoStatus;
+    if (novoStatus !== 'nao_atendido') reqsSnapshot[reqId].baixas[itemKey].motivo = '';
+    enfileirarOperacao(`requisicoes/${reqId}/baixas/${itemKey}/status`, novoStatus, {}, 'set');
+    if (novoStatus !== 'nao_atendido') enfileirarOperacao(`requisicoes/${reqId}/baixas/${itemKey}/motivo`, '', {}, 'set');
+    enfileirarOperacao(`requisicoes/${reqId}/status`, calcStatusGeral(reqsSnapshot[reqId]), {}, 'set');
+    try { cacheSnap('reqs', reqsSnapshot); } catch(e) {}
+    renderMasterReqs();
+    setTimeout(() => { const body = document.getElementById('reqbody_'+reqId); if (body) body.classList.add('open'); }, 50);
+    toast('📴 Baixa guardada offline.', 2600, 'info');
+    return;
+  }
+
   if (db) {
     db.ref(`requisicoes/${reqId}/baixas/${itemKey}/status`).set(novoStatus);
     if (novoStatus !== 'nao_atendido') {
@@ -2166,6 +2186,13 @@ function darBaixa(reqId, itemKey, status) {
 }
 
 function salvarMotivo(reqId, itemKey, motivo) {
+  if (db && !podeEnviar()) {
+    if (reqsSnapshot[reqId]?.baixas?.[itemKey]) reqsSnapshot[reqId].baixas[itemKey].motivo = motivo;
+    try { cacheSnap('reqs', reqsSnapshot); } catch(e) {}
+    enfileirarOperacao(`requisicoes/${reqId}/baixas/${itemKey}/motivo`, motivo, {}, 'set');
+    toast('📴 Motivo guardado offline.', 2400, 'info');
+    return;
+  }
   if (db) {
     db.ref(`requisicoes/${reqId}/baixas/${itemKey}/motivo`).set(motivo);
   } else {
@@ -2362,30 +2389,31 @@ function enviarRequisicao() {
     trackHistory: [{status:'recebido', ts: Date.now(), por: usuarioAtual}]
   };
 
-  if (db) {
-    db.ref('requisicoes').push(payload)
-      .then(() => {
-        toast('🚀 Requisição enviada para Elton!', 3000, 'success');
-        btnEnviar.disabled = false;
-        btnEnviar.textContent = '🚀 ENVIAR REQUISIÇÃO PARA ELTON';
-        // Limpa após envio
-        if (confirm('Requisição enviada com sucesso! Deseja limpar o formulário?')) {
-          fLimparRequisicao();
-        }
-      })
-      .catch(err => {
-        toast('❌ Erro ao enviar: ' + err.message, 4000, 'error');
-        btnEnviar.disabled = false;
-        btnEnviar.textContent = '🚀 ENVIAR REQUISIÇÃO PARA ELTON';
-      });
-  } else {
-    // Sem Firebase: salva local e avisa
+  const registrarLocal = () => {
     const id = 'local_' + Date.now();
     reqsSnapshot[id] = payload;
-    salvarLocalState();
-    toast('⚠️ Sem sincronização — requisição salva localmente', 3500);
+    try { cacheSnap('reqs', reqsSnapshot); } catch(e) {}
+  };
+  const concluir = (offline) => {
     btnEnviar.disabled = false;
     btnEnviar.textContent = '🚀 ENVIAR REQUISIÇÃO PARA ELTON';
+    if (offline) {
+      registrarLocal();
+      toast('📴 Offline: requisição guardada. Vai enviar sozinha quando a internet voltar.', 4200, 'info');
+    } else {
+      toast('🚀 Requisição enviada para Elton!', 3000, 'success');
+      if (confirm('Requisição enviada com sucesso! Deseja limpar o formulário?')) {
+        fLimparRequisicao();
+      }
+    }
+  };
+  if (podeEnviar()) {
+    db.ref('requisicoes').push(payload)
+      .then(() => concluir(false))
+      .catch(() => { enfileirarOperacao('requisicoes', payload); concluir(true); });
+  } else {
+    enfileirarOperacao('requisicoes', payload);
+    concluir(true);
   }
 }
 
@@ -2448,8 +2476,8 @@ function enviarRecebimentoGestao() {
     saveLocalState(); renderRecebimentosLocais(); limparRecebimento();
     toast('✅ Recebimento enviado para a Gestão Elton!', 3000, 'success');
   };
-  if (db) db.ref('entradasGestao').push(payload).then(concluir).catch(err => toast('❌ Erro ao enviar recebimento: ' + err.message, 4000, 'error'));
-  else concluir();
+  if (podeEnviar()) db.ref('entradasGestao').push(payload).then(concluir).catch(() => { enfileirarOperacao('entradasGestao', payload); concluir(); });
+  else { enfileirarOperacao('entradasGestao', payload); concluir(); }
 }
 
 // ================================================================
@@ -2459,6 +2487,7 @@ function escutarContagens() {
   if (!db) return;
   db.ref('contagens').on('value', snap => {
     contagensSnapshot = snap.val() || {};
+    try { cacheSnap('contagens', contagensSnapshot); } catch(e) {}
     renderContagensRecebidas();
   });
 }
@@ -2515,6 +2544,16 @@ function updateTrackStatus(reqId, novoStatus) {
   const updates = {};
   updates[`requisicoes/${reqId}/trackStatus`] = novoStatus;
   updates[`requisicoes/${reqId}/trackHistory`] = novHist;
+  if (db && !podeEnviar()) {
+    reqsSnapshot[reqId].trackStatus = novoStatus;
+    reqsSnapshot[reqId].trackHistory = novHist;
+    try { cacheSnap('reqs', reqsSnapshot); } catch(e) {}
+    enfileirarOperacao(`requisicoes/${reqId}/trackStatus`, novoStatus, {}, 'set');
+    enfileirarOperacao(`requisicoes/${reqId}/trackHistory`, novHist, {}, 'set');
+    renderMasterReqs();
+    toast('📴 Status guardado offline: ' + (TRACK_LABELS[novoStatus]||novoStatus), 3000, 'info');
+    return;
+  }
   if (db) {
     db.ref().update(updates).then(() => toast('✅ Status: ' + (TRACK_LABELS[novoStatus]||novoStatus) + '!', 2500, 'success'));
   } else {
@@ -2755,7 +2794,16 @@ function confirmAddItemSent() {
     _reqIdAcrescentando = null;
   };
 
-  if (db) {
+  if (db && !podeEnviar()) {
+    const extrasAtuais = reqsSnapshot[reqId].extras || [];
+    reqsSnapshot[reqId].extras = [...extrasAtuais, novoExtra];
+    try { cacheSnap('reqs', reqsSnapshot); } catch(e) {}
+    enfileirarOperacao(`requisicoes/${reqId}/extras`, reqsSnapshot[reqId].extras, {}, 'set');
+    enfileirarOperacao(`requisicoes/${reqId}/acrescimoTs`, Date.now(), {}, 'set');
+    renderFuncReqStatus();
+    toast('📴 Item guardado offline. Envia ao voltar a internet.', 3400, 'info');
+    concluir();
+  } else if (db) {
     const extrasAtuais = req.extras || [];
     db.ref(`requisicoes/${reqId}/extras`).set([...extrasAtuais, novoExtra])
       .then(() => {
@@ -2985,14 +3033,17 @@ function enviarContagem() {
     itensEstoque: itensEstoqueFiltrados,
     prodProprio
   };
-  if (db) {
+  const concluirC = (offline) => {
+    if (offline) { contagensSnapshot['local_' + Date.now()] = payload; try { renderContagensRecebidas(); cacheSnap('contagens', contagensSnapshot); } catch(e) {} }
+    toast(offline ? '📴 Offline: contagem guardada. Envia sozinha ao voltar a internet.' : '🚀 Contagem enviada para Elton!', offline?4200:3000, offline?'info':'success');
+  };
+  if (podeEnviar()) {
     db.ref('contagens').push(payload)
-      .then(() => toast('🚀 Contagem enviada para Elton!', 3000, 'success'))
-      .catch(err => toast('❌ Erro ao enviar contagem: ' + err.message, 4000, 'error'));
+      .then(() => concluirC(false))
+      .catch(() => { enfileirarOperacao('contagens', payload); concluirC(true); });
   } else {
-    contagensSnapshot['local_' + Date.now()] = payload;
-    renderContagensRecebidas();
-    toast('⚠️ Sem sincronização — contagem salva localmente', 3500);
+    enfileirarOperacao('contagens', payload);
+    concluirC(true);
   }
 }
 
@@ -3730,14 +3781,15 @@ function enviarContagemMaster() {
     prodProprio,
     origem: 'master'
   };
-  if (db) {
+  if (podeEnviar()) {
     db.ref('contagens').push(payload)
       .then(() => toast('✅ Contagem master salva!', 3000, 'success'))
-      .catch(err => toast('❌ Erro ao salvar: ' + err.message, 4000, 'error'));
+      .catch(() => { enfileirarOperacao('contagens', payload); toast('📴 Offline: contagem guardada.', 3800, 'info'); });
   } else {
+    enfileirarOperacao('contagens', payload);
     contagensSnapshot['master_' + Date.now()] = payload;
-    renderContagensRecebidas();
-    toast('⚠️ Sem Firebase — salvo localmente', 3500);
+    try { renderContagensRecebidas(); cacheSnap('contagens', contagensSnapshot); } catch(e) {}
+    toast('📴 Offline: contagem guardada.', 3800, 'info');
   }
 }
 
@@ -4076,7 +4128,7 @@ function escutarProdutosExtra() {
 // ================================================================
 // SISTEMA DE VERSÃO / ATUALIZAÇÃO DO APP
 // ================================================================
-const APP_VERSAO_LOCAL = '3.0.0'; // devolução estoque + temas por setor + chat + force-update robusto
+const APP_VERSAO_LOCAL = '3.1.0'; // devolução estoque + temas por setor + chat + force-update robusto
 const URL_CORRETA = 'https://controladoriaamano-prog.github.io/requisicao-elton';
 let appVersaoAnterior = null;
 
@@ -4172,16 +4224,12 @@ function forceLimparEAtualizar() {
 
 // Limpa SW + caches e recarrega com cache-buster (?v=timestamp)
 async function _aplicarAtualizacaoTotal() {
+  // Online: pede ao service worker para baixar a versão nova (network-first cuida do resto).
+  // Offline: NÃO limpa o cache — apenas reabre usando o que está guardado.
   try {
-    if ('serviceWorker' in navigator) {
+    if (navigator.onLine !== false && 'serviceWorker' in navigator) {
       const regs = await navigator.serviceWorker.getRegistrations();
-      await Promise.all(regs.map(r => r.unregister()));
-    }
-  } catch(e) {}
-  try {
-    if ('caches' in window) {
-      const keys = await caches.keys();
-      await Promise.all(keys.map(k => caches.delete(k)));
+      for (const r of regs) { try { await r.update(); } catch(e) {} }
     }
   } catch(e) {}
   const base = window.location.origin + window.location.pathname;
@@ -4434,8 +4482,8 @@ function enviarDevolucao(){
     loadDevSetor(setor);
     renderDevLista();
   };
-  if(db) db.ref('devolucoes').push(payload).then(concluir).catch(err=>toast('❌ Erro ao enviar: '+err.message,4000,'error'));
-  else { if(!localState.devolucoes) localState.devolucoes=[]; localState.devolucoes.unshift(payload); saveLocalState(); concluir(); }
+  if(podeEnviar()) db.ref('devolucoes').push(payload).then(concluir).catch(()=>{ enfileirarOperacao('devolucoes', payload); concluir(); });
+  else { enfileirarOperacao('devolucoes', payload); if(!localState.devolucoes) localState.devolucoes=[]; localState.devolucoes.unshift(payload); saveLocalState(); concluir(); }
 }
 function escutarDevolucoes(){
   if(!db) return;
@@ -4446,6 +4494,7 @@ function escutarDevolucoes(){
       Object.entries(data).forEach(([id,dv])=>{ if(!ids.includes(id)) notificarDevolucao(dv); });
     }
     devolucoesSnapshot = data;
+    try { cacheSnap('devolucoes', data); } catch(e) {}
     _devolucoesCarregada = true;
     if(isMaster) renderMasterDevolucoes();
     if(isJersonName(usuarioAtual)) renderDevLista();
@@ -4618,14 +4667,22 @@ function enviarMensagemChat(){
   const txt=(inp.value||'').trim(); if(!txt) return;
   if(isMaster){
     if(!_chatSel){ toast('Selecione uma conversa'); return; }
-    db.ref('mensagens/'+_chatSel+'/itens').push({de:'ESTOQUE',texto:txt,ts:Date.now(),lidaPorEstoque:true,lidaPorUser:false})
-      .then(()=>{ inp.value=''; }).catch(e=>toast('Erro: '+e.message));
+    const msg = {de:'ESTOQUE',texto:txt,ts:Date.now(),lidaPorEstoque:true,lidaPorUser:false};
+    if(podeEnviar()) db.ref('mensagens/'+_chatSel+'/itens').push(msg).then(()=>{ inp.value=''; }).catch(()=>{ enfileirarOperacao('mensagens/'+_chatSel+'/itens', msg); inp.value=''; });
+    else { enfileirarOperacao('mensagens/'+_chatSel+'/itens', msg); inp.value=''; }
   } else {
     const tk=_threadKey(usuarioAtual);
-    db.ref('mensagens/'+tk+'/itens').push({de:usuarioAtual,para:'ESTOQUE',texto:txt,ts:Date.now(),setor:setorUsuario||'',lidaPorEstoque:false,lidaPorUser:true})
-      .then(()=>{ inp.value=''; }).catch(e=>toast('Erro: '+e.message));
-    db.ref('mensagens/'+tk+'/nome').set(usuarioAtual).catch(()=>{});
-    db.ref('mensagens/'+tk+'/setor').set(setorUsuario||'').catch(()=>{});
+    const msg = {de:usuarioAtual,para:'ESTOQUE',texto:txt,ts:Date.now(),setor:setorUsuario||'',lidaPorEstoque:false,lidaPorUser:true};
+    if(podeEnviar()){
+      db.ref('mensagens/'+tk+'/itens').push(msg).then(()=>{ inp.value=''; }).catch(()=>{ enfileirarOperacao('mensagens/'+tk+'/itens', msg); inp.value=''; });
+      db.ref('mensagens/'+tk+'/nome').set(usuarioAtual).catch(()=>{});
+      db.ref('mensagens/'+tk+'/setor').set(setorUsuario||'').catch(()=>{});
+    } else {
+      enfileirarOperacao('mensagens/'+tk+'/itens', msg);
+      enfileirarOperacao('mensagens/'+tk+'/nome', usuarioAtual, {}, 'set');
+      enfileirarOperacao('mensagens/'+tk+'/setor', setorUsuario||'', {}, 'set');
+      inp.value='';
+    }
   }
 }
 
@@ -4740,6 +4797,101 @@ function instalarAppAgora(){
 }
 function jaTemApp(){ return isStandalone() || localStorage.getItem('pwa_installed')==='1'; }
 
+// ================================================================
+// 📴 MODO OFFLINE — FILA DE SINCRONIZAÇÃO + CACHE LOCAL
+// ================================================================
+function podeEnviar(){ return !!db && dbConectado && navigator.onLine !== false; }
+
+const OUTBOX_KEY = 'reqElton_outbox_v1';
+function getOutbox(){ try { return JSON.parse(localStorage.getItem(OUTBOX_KEY) || '[]'); } catch(e) { return []; } }
+function setOutbox(l){ try { localStorage.setItem(OUTBOX_KEY, JSON.stringify(l)); } catch(e) {} atualizarBadgeOffline(); }
+function enfileirarOperacao(path, data, meta, metodo){
+  const l = getOutbox();
+  l.push({path, data, metodo: metodo || 'push', meta: meta || {}, ts: Date.now()});
+  setOutbox(l);
+  atualizarStatusConexao();
+}
+async function flushOutbox(){
+  if(!podeEnviar()) return;
+  const l = getOutbox();
+  if(!l.length){ atualizarBadgeOffline(); return; }
+  const restantes = [];
+  for(const op of l){
+    try {
+      await new Promise((res, rej) => {
+        const ref = db.ref(op.path);
+        const cb = err => err ? rej(err) : res();
+        if(op.metodo === 'set') ref.set(op.data, cb);
+        else if(op.metodo === 'update') ref.update(op.data, cb);
+        else ref.push(op.data, cb);
+      });
+    } catch(e) { restantes.push(op); }
+  }
+  setOutbox(restantes);
+  if(restantes.length === 0 && l.length > 0) toast('✅ Tudo sincronizado!', 3000, 'success');
+  else if(restantes.length > 0) toast('⚠️ ' + restantes.length + ' item(ns) ainda pendente(s).', 3200, 'info');
+}
+function atualizarBadgeOffline(){
+  const n = getOutbox().length;
+  const el = document.getElementById('offlineBadge');
+  if(el){ el.style.display = n > 0 ? 'inline-block' : 'none'; el.textContent = '📴 ' + n + ' pendente' + (n > 1 ? 's' : ''); }
+}
+function atualizarStatusConexao(){
+  const el = document.getElementById('syncStatusEl');
+  const online = dbConectado && navigator.onLine !== false;
+  if(el){
+    if(online){ el.className = 'sync-status sync-online'; el.innerHTML = '<span class="pulse-dot"></span> Online — Sync ativo'; }
+    else { el.className = 'sync-status sync-offline'; el.textContent = '📴 Offline — dados em cache'; }
+  }
+  atualizarBadgeOffline();
+}
+window.addEventListener('online', () => { atualizarStatusConexao(); setTimeout(flushOutbox, 800); verificarAtualizacaoAgora(); });
+window.addEventListener('offline', () => { atualizarStatusConexao(); toast('📴 Você está offline. O app continua funcionando e sincroniza quando a internet voltar.', 4200, 'info'); });
+
+// ---- cache local dos dados (permite abrir e visualizar offline) ----
+const _snapTimers = {};
+function cacheSnap(key, data){
+  clearTimeout(_snapTimers[key]);
+  _snapTimers[key] = setTimeout(() => {
+    try { localStorage.setItem('reqElton_snap_' + key, JSON.stringify({ts: Date.now(), data})); } catch(e) {}
+  }, 1200);
+}
+function loadSnap(key){ try { const o = JSON.parse(localStorage.getItem('reqElton_snap_' + key) || 'null'); return o ? o.data : null; } catch(e) { return null; } }
+function carregarSnapshotsOffline(){
+  const r = loadSnap('reqs'); if(r){ reqsSnapshot = r; }
+  const c = loadSnap('contagens'); if(c){ contagensSnapshot = c; }
+  const d = loadSnap('devolucoes'); if(d){ devolucoesSnapshot = d; _devolucoesCarregada = true; }
+  const a = loadSnap('avisos'); if(a){ avisosMasterList = a; }
+  try {
+    if(isMaster){ renderMasterReqs(); renderContagensRecebidas(); renderMasterDevolucoes(); renderAvisosMaster(); }
+    else { renderFuncReqStatus(); if(isJersonName(usuarioAtual)) renderDevLista(); }
+  } catch(e) {}
+}
+
+// ---- verificação de atualização (SW + Firebase) ----
+function verificarAtualizacaoAgora(){
+  try {
+    if('serviceWorker' in navigator){
+      navigator.serviceWorker.getRegistration().then(reg => { if(reg) reg.update().catch(() => {}); }).catch(() => {});
+    }
+  } catch(e) {}
+  try {
+    if(db && dbConectado){
+      db.ref('config/forceUpdate').once('value').then(snap => {
+        const d = snap.val();
+        if(!d || !d.ts) return;
+        if(d.ts <= Number(localStorage.getItem('reqElton_forceTs') || 0)) return;
+        localStorage.setItem('reqElton_forceTs', String(d.ts));
+        executarForcaAtualizacao(d.nota || 'O aplicativo foi atualizado.');
+      }).catch(() => {});
+    }
+  } catch(e) {}
+}
+setInterval(() => { if(navigator.onLine !== false) verificarAtualizacaoAgora(); }, 5 * 60 * 1000);
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState === 'visible'){ atualizarStatusConexao(); if(navigator.onLine !== false) verificarAtualizacaoAgora(); }
+});
+
 // Escuta versão do app / force update assim que Firebase iniciar
 setTimeout(() => { if (db) { escutarVersaoApp(); escutarForceUpdate(); } }, 2000);
 
@@ -4776,24 +4928,30 @@ function mostrarOverlayRestart() {
 }
 
 if ('serviceWorker' in navigator) {
+  const _haviaController = !!navigator.serviceWorker.controller;
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js?v=20260627').then(reg => {
+    navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).then(reg => {
       console.log('[PWA] Service Worker registrado:', reg.scope);
 
-      // Detecta nova versão do SW instalando
+      // Nova versão instalando -> ativa imediatamente (força atualização)
       reg.addEventListener('updatefound', () => {
         const newWorker = reg.installing;
         if (!newWorker) return;
         newWorker.addEventListener('statechange', () => {
           if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-            console.log('[PWA] Nova versão disponível!');
-            mostrarBannerAtualizacao('Nova versão do app instalada. Toque em Atualizar!', 'novo');
+            console.log('[PWA] Nova versão — forçando ativação...');
+            try { newWorker.postMessage({ type: 'SKIP_WAITING' }); } catch(e) {}
+            mostrarOverlayRestart();
           }
         });
       });
+
+      // Verifica atualização agora e periodicamente
+      reg.update().catch(() => {});
+      setInterval(() => { if (navigator.onLine !== false) reg.update().catch(() => {}); }, 5 * 60 * 1000);
     }).catch(err => console.warn('[PWA] SW falhou:', err));
 
-    // Recebe mensagem do SW quando ele assumiu o controle
+    // Mensagem do SW
     navigator.serviceWorker.addEventListener('message', e => {
       if (e.data && e.data.type === 'SW_UPDATED') {
         mostrarOverlayRestart();
@@ -4801,13 +4959,13 @@ if ('serviceWorker' in navigator) {
       }
     });
 
-    // Fallback: controllerchange também dispara reload
+    // Quando o novo SW assume o controle -> recarrega uma única vez
     let refreshing = false;
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (!refreshing) {
+      if (!refreshing && _haviaController) {
         refreshing = true;
         mostrarOverlayRestart();
-        setTimeout(() => window.location.reload(), 800);
+        setTimeout(() => window.location.reload(), 700);
       }
     });
   });
