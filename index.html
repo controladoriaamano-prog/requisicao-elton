@@ -1,10 +1,14 @@
 
 <!DOCTYPE html>
 <html lang="pt-BR">
-<head><base href="https://d16ilfvy4mv02r.cloudfront.net/workspaces/csV3ktPzgBkp7fUNYLOZw9J36UyCydO5/d12c74a1-0c3e-4cda-a013-7244f7211431/files/">
+<head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>REQUISIÇÃO ELTON — SYNC</title>
+<meta name="description" content="Sistema de Requisição, Contagem, Recebimento, Devolução e Estoque — por Elton Miranda.">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 
 <!-- ===== PWA ===== -->
 <link rel="manifest" href="manifest.json">
@@ -391,6 +395,45 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .update-banner-btn{background:#fff;color:#e65100;border:none;border-radius:10px;padding:9px 18px;font-weight:800;cursor:pointer;font-size:.88rem;white-space:nowrap;flex-shrink:0}
 .update-banner-dismiss{background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:.8rem;white-space:nowrap}
 
+/* ===== TEMA / MARCA D'ÁGUA POR SETOR ===== */
+.sector-watermark{position:fixed;inset:0;display:none;align-items:center;justify-content:center;pointer-events:none;z-index:0;font-size:min(62vw,430px);opacity:.05;user-select:none;overflow:hidden;line-height:1}
+body.tem-setor .page,body.tem-setor .nav-tabs,body.tem-setor .app-header{position:relative;z-index:1}
+body.tem-setor{background:var(--setor-bg,#f5f5f5)}
+body.tem-setor .app-header{background:linear-gradient(135deg,var(--setor-cor,#1a237e),var(--setor-cor2,#3949ab))!important}
+body.tem-setor .nav-tabs{background:var(--setor-cor,#1a237e)!important}
+body.tem-setor .nav-tab.active{color:var(--setor-cor,#1a237e)!important}
+body.tem-setor .card-header{background:linear-gradient(90deg,var(--setor-cor,#1a237e),var(--setor-cor2,#3949ab))!important}
+body.tem-setor .btn-primary{background:var(--setor-cor,#1a237e)!important}
+body.tem-setor .btn-enviar{background:linear-gradient(135deg,var(--setor-cor,#e65100),var(--setor-cor2,#ff6f00))!important}
+body.tem-setor .cat-title{border-bottom-color:var(--setor-cor,#1a237e)!important;color:var(--setor-cor,#1a237e)!important}
+body.tem-setor .req-card{border-left-color:var(--setor-cor,#1a237e)!important}
+.setor-tag{display:inline-flex;align-items:center;gap:5px;font-size:.68rem;font-weight:800;background:rgba(255,255,255,.2);padding:3px 9px;border-radius:12px;white-space:nowrap}
+
+/* ===== ALERTA INSISTENTE DE RETIRADA ===== */
+#retiradaAlerta{position:fixed;left:0;right:0;top:0;z-index:99998;background:linear-gradient(135deg,#c62828,#ef5350);color:#fff;padding:13px 15px;display:none;align-items:center;gap:11px;box-shadow:0 6px 28px rgba(198,40,40,.55)}
+#retiradaAlerta.show{display:flex;animation:slideDown .4s ease}
+#retiradaAlerta.pulsando{animation:alarmePulse 1s infinite}
+@keyframes alarmePulse{0%,100%{box-shadow:0 6px 24px rgba(198,40,40,.45)}50%{box-shadow:0 6px 42px rgba(198,40,40,.95)}}
+.retirada-emoji{font-size:1.8rem;display:inline-block}
+#retiradaAlerta.pulsando .retirada-emoji{animation:bell-ring .9s infinite}
+
+/* ===== CHAT COM O ESTOQUE ===== */
+#chatPanel{position:fixed;top:0;right:0;bottom:0;width:min(410px,100vw);background:#fff;z-index:8500;box-shadow:-4px 0 24px rgba(0,0,0,.2);transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column}
+#chatPanel.open{transform:translateX(0)}
+#chatMsgs{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;background:#f8f9ff}
+.chat-msg{max-width:82%;padding:9px 13px;border-radius:14px;font-size:.86rem;line-height:1.45;margin-bottom:8px;word-wrap:break-word}
+.chat-me{align-self:flex-end;background:var(--primary,#1a237e);color:#fff;border-bottom-right-radius:4px}
+.chat-them{align-self:flex-start;background:#fff;color:#222;border:1px solid #e6e9f5;border-bottom-left-radius:4px}
+.chat-thread-item{padding:10px 13px;border-bottom:1px solid var(--border);cursor:pointer;background:#fff}
+.chat-thread-item:hover{background:#eef1fb}
+.chat-thread-item.ativo{background:#e8eaf6}
+
+/* ===== FORCE UPDATE OVERLAY ===== */
+#forceOverlay{position:fixed;inset:0;z-index:999999;background:linear-gradient(160deg,#0d1b6e,#1a237e 55%,#c62828);display:none;flex-direction:column;align-items:center;justify-content:center;color:#fff;text-align:center;padding:26px;font-family:-apple-system,sans-serif}
+
+/* ===== MODAL DE INSTALAÇÃO ===== */
+#installModal img{image-rendering:auto}
+
 </style>
 </head>
 <body>
@@ -479,10 +522,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
   <div class="header-right">
     <div class="user-chip" onclick="logout()">👤 <span id="nomeUsuarioHeader">—</span> · Sair</div>
     <div class="sync-status sync-connecting" id="syncStatusEl"><span class="pulse-dot"></span> Conectando...</div>
-    <button class="notif-bell-btn" id="notifBellBtn" onclick="toggleNotifCenter()" style="display:none" title="Central de Notificações">
-      🔔
-      <span class="notif-bell-badge" id="notifBadge" style="display:none">0</span>
-    </button>
+    <div style="display:flex;align-items:center;gap:0">
+      <button class="notif-bell-btn" id="installBtn" onclick="mostrarPromptInstalar(true)" title="Baixar app na área de trabalho" style="display:none">📲</button>
+      <button class="notif-bell-btn" id="chatBtn" onclick="abrirChat()" title="Mensagem ao Estoque (Elton)" style="display:none">💬
+        <span class="notif-bell-badge" id="chatBadge" style="display:none">0</span>
+      </button>
+      <button class="notif-bell-btn" id="notifBellBtn" onclick="toggleNotifCenter()" style="display:none" title="Central de Notificações">
+        🔔
+        <span class="notif-bell-badge" id="notifBadge" style="display:none">0</span>
+      </button>
+    </div>
   </div>
 </div>
 
@@ -492,6 +541,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
   <button class="nav-tab" id="tab-master-produtos" onclick="showPage('master-produtos')">📦 Produtos</button>
   <button class="nav-tab" onclick="showPage('master-contagem')" id="tab-master-contagem">📊 Contagem</button>
   <button class="nav-tab" onclick="showPage('master-estoque')" id="tab-master-estoque">🏪 Estoque</button>
+  <button class="nav-tab" onclick="showPage('master-devolucoes')" id="tab-master-devolucoes">↩️ Devoluções</button>
   <button class="nav-tab" onclick="showPage('master-relatorios')" id="tab-master-relatorios">📊 Relatórios</button>
   <button class="nav-tab" onclick="showPage('recebimento')" id="tab-recebimento">📥 Recebimento</button>
   <button class="nav-tab" onclick="showPage('master-config')" id="tab-master-config">⚙️ Config</button>
@@ -503,6 +553,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
   <button class="nav-tab" onclick="showPage('func-status')" id="tab-func-status">📬 Rastrear <span class="tab-badge" id="badge-func-status" style="display:none">!</span></button>
   <button class="nav-tab" onclick="showPage('recebimento')" id="tab-recebimento-func">📥 Recebimento</button>
   <button class="nav-tab" onclick="showPage('func-contagem')" id="tab-func-contagem">📊 Contagem</button>
+  <button class="nav-tab" onclick="showPage('func-devolucao')" id="tab-func-devolucao" style="display:none">↩️ Devolução Estoque</button>
 </div>
 
 <!-- ============================================================ -->
@@ -967,6 +1018,82 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
   </div>
 </div>
 
+<!-- ===== FUNC: DEVOLUÇÃO AO ESTOQUE (usuário JERSON) ===== -->
+<div class="page" id="page-func-devolucao">
+  <div style="margin-top:16px">
+    <div class="info-banner">
+      ↩️ <strong>Devolução ao Estoque</strong><br>
+      Registre produtos devolvidos ao estoque. Escolha o setor, o produto (ou escreva um item que não esteja na lista), a quantidade em UN ou KG e o motivo da devolução.
+    </div>
+    <div class="card">
+      <div class="card-header">↩️ NOVA DEVOLUÇÃO</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Setor</label>
+          <select id="devSetor" onchange="loadDevSetor(this.value)">
+            <option value="">-- Selecione o Setor --</option>
+            <option value="REFEITORIO">REFEITÓRIO</option>
+            <option value="MASSARIA">MASSARIA</option>
+            <option value="LIMPEZA">LIMPEZA</option>
+            <option value="CONFEITARIA">CONFEITARIA</option>
+            <option value="BAR">BAR</option>
+            <option value="COZINHA">COZINHA</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Motivo da devolução</label>
+          <select id="devMotivo">
+            <option value="Produto em excesso na cozinha">Produto em excesso na cozinha</option>
+            <option value="Problema com refrigeração">Problema com refrigeração</option>
+            <option value="Outro">Outro</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row single">
+        <div class="form-group">
+          <label>Observação (opcional)</label>
+          <input type="text" id="devObs" placeholder="Ex: lote, validade, detalhe do problema">
+        </div>
+      </div>
+    </div>
+    <div id="devItemsArea"><div class="empty"><div class="icon">👆</div><p>Selecione o setor acima para listar os produtos</p></div></div>
+    <div class="action-bar no-print" id="devActionBar" style="display:none">
+      <button class="btn btn-primary" onclick="devAddLivre()">➕ Produto não listado</button>
+      <button class="btn btn-success" onclick="enviarDevolucao()">🚀 Enviar Devolução</button>
+      <button class="btn btn-secondary" onclick="devLimpar()">🗑️ Limpar</button>
+    </div>
+    <div class="card">
+      <div class="card-header">📋 DEVOLUÇÕES ENVIADAS</div>
+      <div id="devLista"><div class="empty"><p>Nenhuma devolução enviada ainda.</p></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MASTER: DEVOLUÇÕES AO ESTOQUE ===== -->
+<div class="page" id="page-master-devolucoes">
+  <div style="margin-top:16px">
+    <div class="info-banner">
+      ↩️ <strong>Devoluções ao Estoque</strong><br>
+      Registros enviados pelo Jerson com setor, produto, quantidade e motivo da devolução.
+    </div>
+    <div id="masterDevolucoesArea"><div class="empty"><div class="icon">📭</div><p>Nenhuma devolução recebida ainda.</p></div></div>
+  </div>
+</div>
+
+<!-- ===== MODAL DEVOLUÇÃO — PRODUTO LIVRE ===== -->
+<div class="modal-overlay" id="modalDevLivre">
+  <div class="modal">
+    <div class="modal-header"><span>➕ Produto não listado</span><button class="modal-close" onclick="closeModal('modalDevLivre')">✕</button></div>
+    <div class="modal-body">
+      <p style="font-size:.78rem;color:var(--muted);margin-bottom:12px">Use quando o produto devolvido não estiver na lista do setor.</p>
+      <div class="form-group" style="margin-bottom:12px"><label>Código (opcional)</label><input type="text" id="devLivreCod" placeholder="Ex: M99"></div>
+      <div class="form-group" style="margin-bottom:12px"><label>Nome do Produto</label><input type="text" id="devLivreNome" placeholder="Nome do produto"></div>
+      <div class="form-group" style="margin-bottom:16px"><label>Quantidade</label><input type="number" id="devLivreQty" value="1" min="0.01" step="0.01"></div>
+      <button class="btn btn-primary btn-block" onclick="confirmDevLivre()">✅ Adicionar à devolução</button>
+    </div>
+  </div>
+</div>
+
 <!-- ===== MODAL EDITAR REQUISIÇÃO ===== -->
 <div class="modal-overlay" id="modalEditarReq">
   <div class="modal">
@@ -1035,7 +1162,29 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
   </div>
 </div>
 
+<!-- Marca d'água do setor -->
+<div class="sector-watermark" id="sectorWatermark" aria-hidden="true"></div>
+
+<!-- Alerta insistente de retirada -->
+<div id="retiradaAlerta"></div>
+
 <div class="toast" id="toast"></div>
+
+<!-- ===== CHAT COM O ESTOQUE (todos os usuários) ===== -->
+<div id="chatPanel">
+  <div class="nc-header">
+    <span class="nc-title" id="chatTitle">💬 Mensagens com o Estoque</span>
+    <button class="nc-close" onclick="fecharChat()">✕</button>
+  </div>
+  <div style="padding:7px 12px;background:#e8eaf6;font-size:.7rem;color:#3949ab;font-weight:600;border-bottom:1px solid #c5cae9" id="chatHint">Fale direto com o Elton (Estoque) e receba as respostas aqui.</div>
+  <div id="chatThreadsWrap" style="display:none;max-height:42%;overflow-y:auto;border-bottom:2px solid var(--border)"></div>
+  <div id="chatMsgs"><div class="nc-empty">Carregando mensagens...</div></div>
+  <div style="padding:10px;border-top:1px solid var(--border);display:flex;gap:8px;background:#fff">
+    <input id="chatInput" placeholder="Escreva uma mensagem..." style="flex:1;padding:11px 14px;border:2px solid var(--border);border-radius:22px;font-size:.9rem" onkeydown="if(event.key==='Enter')enviarMensagemChat()">
+    <button class="btn btn-primary" onclick="enviarMensagemChat()" style="padding:11px 16px;border-radius:22px">➤</button>
+  </div>
+</div>
+<div id="chatBackdrop" onclick="fecharChat()" style="position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:8499;display:none"></div>
 
 <script>
 // ================================================================
@@ -1215,6 +1364,16 @@ function entrar(nome, setor) {
     if (bell) bell.style.display = 'flex';
   }
 
+  // 🎨 Recursos novos: tema do setor, devolução (JERSON), chat e instalação
+  aplicarTemaSetor(isMaster ? null : setor);
+  const devTab = document.getElementById('tab-func-devolucao');
+  if (devTab) devTab.style.display = (!isMaster && isJersonName(nome)) ? 'inline-block' : 'none';
+  const chatBtn = document.getElementById('chatBtn'); if (chatBtn) chatBtn.style.display = 'flex';
+  const installBtn = document.getElementById('installBtn'); if (installBtn) installBtn.style.display = 'flex';
+  if (db) { escutarDevolucoes(); iniciarChatListeners(); }
+  if (isJersonName(nome)) { renderDevLista(); }
+  setTimeout(() => mostrarPromptInstalar(false), 2600);
+
   // Salva recentes
   try {
     let lista = JSON.parse(localStorage.getItem('reqElton_usuarios') || '[]');
@@ -1231,7 +1390,10 @@ function entrar(nome, setor) {
 function logout() {
   if (!confirm(`Sair da conta "${usuarioAtual}"?`)) return;
   // Remove listeners Firebase
-  if (db) { db.ref('requisicoes').off(); db.ref('contagens').off(); }
+  if (db) { db.ref('requisicoes').off(); db.ref('contagens').off(); db.ref('devolucoes').off(); db.ref('mensagens').off(); }
+  pararAlarmeRetirada();
+  fecharChat();
+  aplicarTemaSetor(null);
   usuarioAtual = null; setorUsuario = null; isMaster = false;
   localState = {}; reqsSnapshot = {}; contagensSnapshot = {};
   funcPrevStatus = {}; funcPrimeiraExibicao = true;
@@ -1303,6 +1465,7 @@ function escutarRequisicoes() {
       if (document.getElementById('page-master-relatorios')?.classList.contains('active')) renderRelatorios();
     } else {
       renderFuncReqStatus();
+      verificarAlarmeRetirada();
     }
     setSyncStatus('online');
   }, err => {
@@ -1818,7 +1981,8 @@ function notificarStatusMudou(req, novoStatus) {
   // 🔔 Som diferente para 'aguardando_retirada' (mais urgente)
   tocarSom(novoStatus === 'aguardando_retirada' ? 'urgente' : 'status-change');
   animarSino();
-  try { navigator.vibrate && navigator.vibrate([200, 100, 200, 100, 200]); } catch(e) {}
+  try { navigator.vibrate && navigator.vibrate(novoStatus === 'aguardando_retirada' ? [400,150,400,150,700] : [200, 100, 200, 100, 200]); } catch(e) {}
+  if (novoStatus === 'aguardando_retirada') setTimeout(verificarAlarmeRetirada, 300);
 }
 
 // ================================================================
@@ -3207,6 +3371,7 @@ function loadFuncSetor(setor) {
     return;
   }
   ensureReq(setor);
+  if (!isMaster) aplicarTemaSetor(setor);
   document.getElementById('fReqNome').value = localState.req[setor].nome || usuarioAtual || '';
   document.getElementById('fReqActionBar').style.display = 'flex';
   document.getElementById('btnEnviarReq').style.display = 'flex';
@@ -3762,6 +3927,8 @@ function showPage(id) {
   if (id === 'func-status') renderFuncReqStatus();
   if (id === 'master-produtos') renderMasterProdutos();
   if (id === 'master-relatorios') renderRelatorios();
+  if (id === 'master-devolucoes') renderMasterDevolucoes();
+  if (id === 'func-devolucao') { if (isJersonName(usuarioAtual)) renderDevLista(); }
 }
 
 // ================================================================
@@ -3909,7 +4076,7 @@ function escutarProdutosExtra() {
 // ================================================================
 // SISTEMA DE VERSÃO / ATUALIZAÇÃO DO APP
 // ================================================================
-const APP_VERSAO_LOCAL = '2.2.0'; // 2026-06-30 — fix Netlify 404 + SW v6
+const APP_VERSAO_LOCAL = '3.0.0'; // devolução estoque + temas por setor + chat + force-update robusto
 const URL_CORRETA = 'https://controladoriaamano-prog.github.io/requisicao-elton';
 let appVersaoAnterior = null;
 
@@ -3999,31 +4166,26 @@ function atualizarApp() {
 // FORCE UPDATE — limpa cache + SW + redireciona para URL correta
 // ================================================================
 function forceLimparEAtualizar() {
-  const URL_DESTINO = 'https://controladoriaamano-prog.github.io/requisicao-elton/';
-  // Se já está na URL correta, só força reload limpo
-  const jaCorreto = window.location.hostname === 'controladoriaamano-prog.github.io' || window.location.hostname === 'localhost';
-  const limpar = async () => {
-    try {
-      // 1. Remove todos os Service Workers
-      if ('serviceWorker' in navigator) {
-        const regs = await navigator.serviceWorker.getRegistrations();
-        await Promise.all(regs.map(r => r.unregister()));
-      }
-      // 2. Apaga todos os caches
-      if ('caches' in window) {
-        const keys = await caches.keys();
-        await Promise.all(keys.map(k => caches.delete(k)));
-      }
-    } catch(e) {}
-    // 3. Redireciona ou recarrega
-    if (jaCorreto) {
-      window.location.reload(true);
-    } else {
-      window.location.replace(URL_DESTINO);
-    }
-  };
   toast('⚡ Atualizando... aguarde!', 2000, 'success');
-  setTimeout(limpar, 1500);
+  setTimeout(_aplicarAtualizacaoTotal, 1200);
+}
+
+// Limpa SW + caches e recarrega com cache-buster (?v=timestamp)
+async function _aplicarAtualizacaoTotal() {
+  try {
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map(r => r.unregister()));
+    }
+  } catch(e) {}
+  try {
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k)));
+    }
+  } catch(e) {}
+  const base = window.location.origin + window.location.pathname;
+  window.location.replace(base + '?v=' + Date.now() + (window.location.hash || ''));
 }
 
 function enviarAvisoForceUpdate() {
@@ -4037,8 +4199,12 @@ function enviarAvisoForceUpdate() {
     timestamp: Date.now(),
     enviadoPor: usuarioAtual
   };
-  db.ref('avisos').push(aviso)
-    .then(() => toast('⚡ Aviso de force update enviado a todos!', 3500, 'success'))
+  const agora = Date.now();
+  db.ref('avisos').push(aviso).catch(()=>{});
+  db.ref().update({
+    'config/forceUpdate': {ts: agora, nota: 'O app foi atualizado. Atualizando automaticamente...', por: usuarioAtual},
+    'config/versao_app': {versao: String(agora), nota: 'Atualização obrigatória aplicada por Elton.', timestamp: agora, atualizadoPor: usuarioAtual}
+  }).then(() => toast('⚡ Atualização forçada enviada a todos!', 3500, 'success'))
     .catch(err => toast('❌ Erro: ' + err.message));
 }
 
@@ -4065,8 +4231,517 @@ function publicarAtualizacaoApp() {
   initFirebase(FIREBASE_CONFIG);
 })();
 
-// Escuta versão do app assim que Firebase iniciar
-setTimeout(() => { if (db) escutarVersaoApp(); }, 2000);
+// ================================================================
+// 🎨 TEMAS / MARCA D'ÁGUA POR SETOR  (alteração 3)
+// ================================================================
+const SETOR_TEMA = {
+  REFEITORIO:  {cor:'#00695c', cor2:'#26a69a', bg:'#f1faf8', emoji:'🍽️', nome:'Refeitório'},
+  MASSARIA:    {cor:'#6d4c41', cor2:'#a1887f', bg:'#faf6f4', emoji:'🍞', nome:'Massaria'},
+  LIMPEZA:     {cor:'#0277bd', cor2:'#4fc3f7', bg:'#f1f9fe', emoji:'🧹', nome:'Limpeza'},
+  CONFEITARIA: {cor:'#ad1457', cor2:'#f06292', bg:'#fdf1f7', emoji:'🎂', nome:'Confeitaria'},
+  BAR:         {cor:'#4527a0', cor2:'#7e57c2', bg:'#f4f1fd', emoji:'🍹', nome:'Bar'},
+  COZINHA:     {cor:'#c62828', cor2:'#ef5350', bg:'#fdf2f2', emoji:'👨‍🍳', nome:'Cozinha'}
+};
+function aplicarTemaSetor(setor){
+  const t = SETOR_TEMA[setor];
+  const root = document.documentElement;
+  const wm = document.getElementById('sectorWatermark');
+  if (!t || isMaster) {
+    document.body.classList.remove('tem-setor');
+    if (wm) wm.style.display = 'none';
+    root.style.removeProperty('--setor-cor');
+    root.style.removeProperty('--setor-cor2');
+    root.style.removeProperty('--setor-bg');
+    return;
+  }
+  document.body.classList.add('tem-setor');
+  root.style.setProperty('--setor-cor', t.cor);
+  root.style.setProperty('--setor-cor2', t.cor2);
+  root.style.setProperty('--setor-bg', t.bg);
+  if (wm) { wm.style.display = 'flex'; wm.textContent = t.emoji; }
+}
+function _esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+// ================================================================
+// ↩️ DEVOLUÇÃO AO ESTOQUE (usuário JERSON)  (alteração 1)
+// ================================================================
+const DEVOLUCAO_USERS = ['jerson'];
+function isJersonName(nome){
+  const p = normalizarNome(nome).split(' ')[0];
+  return DEVOLUCAO_USERS.includes(p);
+}
+let devolucoesSnapshot = {};
+let _devolucoesCarregada = false;
+
+function ensureDev(){
+  if (!localState.devolucao) localState.devolucao = {itens:{}, unidades:{}, extras:[]};
+  if (!localState.devolucao.unidades) localState.devolucao.unidades = {};
+  if (!localState.devolucao.extras) localState.devolucao.extras = [];
+}
+function loadDevSetor(setor){
+  const area = document.getElementById('devItemsArea');
+  const bar = document.getElementById('devActionBar');
+  if (!setor){
+    if (area) area.innerHTML = '<div class="empty"><div class="icon">👆</div><p>Selecione o setor acima para listar os produtos</p></div>';
+    if (bar) bar.style.display = 'none';
+    return;
+  }
+  ensureDev();
+  if (bar) bar.style.display = 'flex';
+  renderDevItems(setor);
+}
+function getDevUn(key){ return localState.devolucao?.unidades?.[key] || 'UN'; }
+function devToggleUn(key){
+  ensureDev();
+  const cur = getDevUn(key);
+  localState.devolucao.unidades[key] = cur === 'UN' ? 'KG' : 'UN';
+  saveLocalState();
+  const btn = document.getElementById('devun_'+key);
+  if (btn){ const un = localState.devolucao.unidades[key]; btn.textContent = un; btn.style.background = un==='KG'?'#e8f5e9':'#e8eaf6'; btn.style.color = un==='KG'?'#2e7d32':'#1a237e'; }
+}
+function devItemRow(key,cod,nome,qty,setor,isExtra,idx){
+  const qtyClass = qty>0?'active':'';
+  const qtyDisplay = qty>0?qty:'';
+  const un = getDevUn(key);
+  const unBg = un==='KG'?'#e8f5e9':'#e8eaf6';
+  const unColor = un==='KG'?'#2e7d32':'#1a237e';
+  const extraBtn = isExtra ? `<button onclick="devRemoveExtra(${idx})" style="background:#ffebee;border:none;border-radius:50%;width:24px;height:24px;cursor:pointer;font-size:.8rem;flex-shrink:0">✕</button>` : '';
+  return `<div class="item-row">
+    <span class="item-cod">${cod}</span>
+    <span class="item-name">${nome}</span>
+    ${extraBtn}
+    <div class="qty-ctrl">
+      <button class="qty-btn minus" onclick="devChangeQty('${key}',-1)">−</button>
+      <input type="number" class="qty-val-input ${qtyClass}" id="devqty_${key}" value="${qtyDisplay}" min="0" step="0.01" placeholder="0" oninput="devSetQty('${key}',this.value)" onfocus="this.select()">
+      <button class="qty-btn plus" onclick="devChangeQty('${key}',1)">+</button>
+      <button id="devun_${key}" onclick="devToggleUn('${key}')" style="padding:5px 9px;border:none;border-radius:8px;font-size:.78rem;font-weight:800;cursor:pointer;flex-shrink:0;background:${unBg};color:${unColor}">${un}</button>
+    </div>
+  </div>`;
+}
+function renderDevItems(setor){
+  ensureDev();
+  const s = localState.devolucao;
+  let html = '';
+  (DATA[setor]||[]).forEach(cat=>{
+    html += `<div class="card" style="margin-bottom:12px"><div class="cat-title">📦 ${cat.categoria}</div>`;
+    cat.itens.forEach(item=>{
+      const key = item.cod+'_'+item.nome.replace(/[^a-zA-Z0-9]/g,'');
+      html += devItemRow(key,item.cod,item.nome,s.itens[key]||0,setor,false,-1);
+    });
+    html += '</div>';
+  });
+  if (s.extras && s.extras.length){
+    html += '<div class="card" style="margin-bottom:12px"><div class="cat-title">➕ PRODUTOS NÃO LISTADOS</div>';
+    s.extras.forEach((ex,i)=>{ html += devItemRow('devextra_'+i, ex.cod||'--', ex.nome, ex.qty||0, setor, true, i); });
+    html += '</div>';
+  }
+  html += `<div class="summary-count">Produtos na devolução: <strong>${countDevItems()}</strong></div>`;
+  document.getElementById('devItemsArea').innerHTML = html;
+}
+function countDevItems(){
+  ensureDev();
+  const norm = Object.values(localState.devolucao.itens||{}).filter(v=>parseFloat(v)>0).length;
+  const ex = (localState.devolucao.extras||[]).filter(e=>parseFloat(e.qty||0)>0).length;
+  return norm+ex;
+}
+function devChangeQty(key, delta){
+  ensureDev();
+  if (key.startsWith('devextra_')){
+    const idx = parseInt(key.replace('devextra_',''));
+    const cur = parseFloat(localState.devolucao.extras[idx]?.qty)||0;
+    const nv = Math.max(0, Math.round((cur+delta)*1000)/1000);
+    if (localState.devolucao.extras[idx]) localState.devolucao.extras[idx].qty = nv;
+    const el = document.getElementById('devqty_'+key); if(el){el.value=nv>0?nv:'';el.className='qty-val-input'+(nv>0?' active':'');}
+  } else {
+    const cur = parseFloat(localState.devolucao.itens[key])||0;
+    const nv = Math.max(0, Math.round((cur+delta)*1000)/1000);
+    if (nv===0) delete localState.devolucao.itens[key]; else localState.devolucao.itens[key]=nv;
+    const el = document.getElementById('devqty_'+key); if(el){el.value=nv>0?nv:'';el.className='qty-val-input'+(nv>0?' active':'');}
+  }
+  saveLocalState();
+  const sc = document.querySelector('#page-func-devolucao .summary-count strong'); if(sc) sc.textContent = countDevItems();
+}
+function devSetQty(key,valStr){
+  ensureDev();
+  const nv = Math.max(0, parseFloat(valStr)||0);
+  if (key.startsWith('devextra_')){
+    const idx = parseInt(key.replace('devextra_',''));
+    if (localState.devolucao.extras[idx]) localState.devolucao.extras[idx].qty = nv;
+  } else { if(nv===0) delete localState.devolucao.itens[key]; else localState.devolucao.itens[key]=nv; }
+  saveLocalState();
+  const el = document.getElementById('devqty_'+key); if(el) el.className='qty-val-input'+(nv>0?' active':'');
+  const sc = document.querySelector('#page-func-devolucao .summary-count strong'); if(sc) sc.textContent = countDevItems();
+}
+function devAddLivre(){
+  const setor = document.getElementById('devSetor')?.value;
+  if(!setor){ toast('Selecione o setor primeiro'); return; }
+  document.getElementById('devLivreCod').value='';
+  document.getElementById('devLivreNome').value='';
+  document.getElementById('devLivreQty').value=1;
+  openModal('modalDevLivre');
+}
+function confirmDevLivre(){
+  const setor = document.getElementById('devSetor')?.value;
+  if(!setor){ toast('Selecione o setor'); return; }
+  const nome = (document.getElementById('devLivreNome').value||'').trim();
+  if(!nome){ toast('Informe o nome do produto'); return; }
+  const cod = (document.getElementById('devLivreCod').value||'').trim().toUpperCase();
+  const qty = parseFloat(document.getElementById('devLivreQty').value)||1;
+  ensureDev();
+  localState.devolucao.extras.push({cod:cod||'--', nome, qty});
+  saveLocalState();
+  closeModal('modalDevLivre');
+  renderDevItems(setor);
+  toast('✅ Produto adicionado à devolução');
+}
+function devRemoveExtra(idx){
+  ensureDev();
+  localState.devolucao.extras.splice(idx,1);
+  saveLocalState();
+  const setor = document.getElementById('devSetor')?.value; if(setor) renderDevItems(setor);
+}
+function devLimpar(){
+  const setor = document.getElementById('devSetor')?.value;
+  if(!confirm('Limpar a devolução atual?')) return;
+  localState.devolucao = {itens:{}, unidades:{}, extras:[]};
+  saveLocalState();
+  if(setor) renderDevItems(setor);
+  toast('🗑️ Devolução limpa');
+}
+function enviarDevolucao(){
+  const setor = document.getElementById('devSetor')?.value;
+  if(!setor){ toast('⚠️ Selecione o setor'); return; }
+  ensureDev();
+  const s = localState.devolucao;
+  const itens = {}; Object.entries(s.itens||{}).forEach(([k,v])=>{ if(parseFloat(v)>0) itens[k]=v; });
+  const extras = (s.extras||[]).filter(e=>parseFloat(e.qty||0)>0);
+  if(!Object.keys(itens).length && !extras.length){ toast('⚠️ Adicione pelo menos um produto'); return; }
+  const motivo = document.getElementById('devMotivo')?.value || 'Outro';
+  const obs = (document.getElementById('devObs')?.value||'').trim();
+  const payload = {
+    setor, requisitante: usuarioAtual, origem:'devolucao',
+    itens, unidades: s.unidades||{}, extras, motivo, obs,
+    timestamp: Date.now(),
+    data: new Date().toLocaleDateString('pt-BR'),
+    hora: new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),
+    status:'recebido'
+  };
+  const concluir = ()=>{
+    toast('✅ Devolução enviada ao estoque!',3200,'success');
+    localState.devolucao = {itens:{},unidades:{},extras:[]};
+    saveLocalState();
+    const ob = document.getElementById('devObs'); if(ob) ob.value='';
+    loadDevSetor(setor);
+    renderDevLista();
+  };
+  if(db) db.ref('devolucoes').push(payload).then(concluir).catch(err=>toast('❌ Erro ao enviar: '+err.message,4000,'error'));
+  else { if(!localState.devolucoes) localState.devolucoes=[]; localState.devolucoes.unshift(payload); saveLocalState(); concluir(); }
+}
+function escutarDevolucoes(){
+  if(!db) return;
+  db.ref('devolucoes').on('value', snap=>{
+    const data = snap.val()||{};
+    if(isMaster && _devolucoesCarregada){
+      const ids = Object.keys(devolucoesSnapshot);
+      Object.entries(data).forEach(([id,dv])=>{ if(!ids.includes(id)) notificarDevolucao(dv); });
+    }
+    devolucoesSnapshot = data;
+    _devolucoesCarregada = true;
+    if(isMaster) renderMasterDevolucoes();
+    if(isJersonName(usuarioAtual)) renderDevLista();
+  });
+}
+function notificarDevolucao(dv){
+  if(!dv) return;
+  const body = `↩️ <strong>${_esc(dv.setor||'')}</strong> — ${_esc(dv.requisitante||'')}<br><span style="font-size:.82rem;color:#666">${_esc(dv.motivo||'Devolução')}</span>`;
+  const t=document.getElementById('notifTitle'); const i=document.getElementById('notifIcon');
+  if(t) t.textContent='↩️ Nova Devolução de Estoque';
+  if(i) i.textContent='↩️';
+  const b=document.getElementById('notifBody'); if(b) b.innerHTML=body;
+  const btn=document.getElementById('notifBtnPrimary'); if(btn) btn.textContent='↩️ Ver devoluções';
+  document.getElementById('notifOverlay').classList.add('show');
+  tocarSom('status-change'); animarSino();
+  try{ navigator.vibrate && navigator.vibrate([200,100,200]); }catch(e){}
+}
+function _devItemMap(setor){
+  const map={};
+  (DATA[setor]||[]).forEach(cat=>cat.itens.forEach(item=>{ map[item.cod+'_'+item.nome.replace(/[^a-zA-Z0-9]/g,'')]=item; }));
+  return map;
+}
+function _devResumoItens(dv){
+  const map=_devItemMap(dv.setor);
+  const partes=[];
+  Object.entries(dv.itens||{}).forEach(([k,qty])=>{ const it=map[k]||{cod:'?',nome:k}; partes.push(`<span class="item-cod">${it.cod}</span> ${it.nome} <strong>${qty}</strong> ${(dv.unidades||{})[k]||'UN'}`); });
+  (dv.extras||[]).forEach(ex=>{ partes.push(`<span class="item-cod" style="background:#fff3e0;color:#e65100">${ex.cod||'--'}</span> ${ex.nome} <strong>${ex.qty||1}</strong> ${ex.un||'UN'}`); });
+  return partes.map(p=>`<div style="padding:4px 0;border-bottom:1px solid #f5f5f5;font-size:.84rem">${p}</div>`).join('');
+}
+function renderDevLista(){
+  const area=document.getElementById('devLista'); if(!area) return;
+  const minhas = Object.entries(devolucoesSnapshot)
+    .filter(([,d])=> normalizarNome(d.requisitante)===normalizarNome(usuarioAtual))
+    .sort((a,b)=>(b[1].timestamp||0)-(a[1].timestamp||0));
+  const locais = (localState.devolucoes||[]);
+  if(!minhas.length && !locais.length){ area.innerHTML='<div class="empty"><p>Nenhuma devolução enviada ainda.</p></div>'; return; }
+  const todas = [...minhas.map(([id,d])=>({d})), ...locais.map(d=>({d}))];
+  area.innerHTML = todas.map(({d})=>{
+    const hora = d.timestamp ? new Date(d.timestamp).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
+    return `<div class="req-card" style="border-left-color:#ad1457">
+      <div class="req-card-header" style="cursor:default">
+        <div><div class="req-card-title">↩️ ${_esc(d.setor)} <span style="font-size:.75rem;background:#fce4ec;color:#ad1457;border-radius:8px;padding:2px 8px">${_esc(d.motivo||'Devolução')}</span></div>
+        <div class="req-card-meta">📅 ${hora}${d.obs?' · '+_esc(d.obs):''}</div></div>
+        <div class="req-card-badge" style="background:#fce4ec;color:#ad1457">Enviada</div>
+      </div>
+      <div style="padding:10px 16px">${_devResumoItens(d)}</div>
+    </div>`;
+  }).join('');
+}
+function renderMasterDevolucoes(){
+  const area=document.getElementById('masterDevolucoesArea'); if(!area) return;
+  const entries=Object.entries(devolucoesSnapshot).sort((a,b)=>(b[1].timestamp||0)-(a[1].timestamp||0));
+  if(!entries.length){ area.innerHTML='<div class="empty"><div class="icon">📭</div><p>Nenhuma devolução recebida ainda.</p></div>'; return; }
+  area.innerHTML=entries.map(([id,d])=>{
+    const hora=d.timestamp?new Date(d.timestamp).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
+    return `<div class="card" style="margin-bottom:12px">
+      <div class="card-header" style="background:linear-gradient(90deg,#ad1457,#f06292)!important">↩️ ${_esc(d.setor)} <span style="font-size:.72rem;background:rgba(255,255,255,.25);padding:2px 8px;border-radius:8px">${_esc(d.motivo||'Devolução')}</span></div>
+      <div style="padding:12px 16px">
+        <div style="font-size:.78rem;color:var(--muted);margin-bottom:8px">👤 ${_esc(d.requisitante||'—')} · 🕐 ${hora}${d.obs?' · 📝 '+_esc(d.obs):''}</div>
+        ${_devResumoItens(d)}
+        <div style="margin-top:10px"><button class="btn btn-danger" style="font-size:.78rem" onclick="excluirDevolucao('${id}')">🗑️ Excluir</button></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+function excluirDevolucao(id){
+  if(!confirm('Excluir esta devolução?')) return;
+  if(db) db.ref('devolucoes/'+id).remove().then(()=>toast('🗑️ Devolução excluída')).catch(e=>toast('Erro: '+e.message));
+  else toast('Sem conexão');
+}
+
+// ================================================================
+// 💬 MENSAGENS COM O ESTOQUE / ELTON  (alteração 3)
+// ================================================================
+let _chatThreads = {};
+let _chatSel = null;
+function _threadKey(nome){ return normalizarNome(nome||'').replace(/[^a-z0-9]+/g,'_') || 'sem_nome'; }
+function iniciarChatListeners(){
+  if(!db) return;
+  if(isMaster){
+    db.ref('mensagens').on('value', snap=>{
+      _chatThreads = snap.val()||{};
+      let unread=0;
+      Object.values(_chatThreads).forEach(t=>{
+        Object.values(t.itens||{}).forEach(m=>{ if(m.de!=='ESTOQUE' && !m.lidaPorEstoque) unread++; });
+      });
+      const badge=document.getElementById('chatBadge');
+      if(badge){ badge.style.display = unread>0?'flex':'none'; badge.textContent = unread>9?'9+':unread; }
+      const panel=document.getElementById('chatPanel');
+      if(panel && panel.classList.contains('open')) renderChatThreads();
+    });
+  } else {
+    const tk=_threadKey(usuarioAtual);
+    db.ref('mensagens/'+tk).on('value', snap=>{
+      const t=snap.val()||{};
+      _chatThreads = {[tk]: t};
+      let unread=0;
+      Object.entries(t.itens||{}).forEach(([id,m])=>{
+        if(m.de==='ESTOQUE' && !m.lidaPorUser){ unread++; db.ref('mensagens/'+tk+'/itens/'+id+'/lidaPorUser').set(true).catch(()=>{}); }
+      });
+      const badge=document.getElementById('chatBadge');
+      if(badge){ badge.style.display = unread>0?'flex':'none'; badge.textContent = unread>9?'9+':unread; }
+      if(unread>0){ tocarSom('aviso'); animarSino(); }
+      const panel=document.getElementById('chatPanel');
+      if(panel && panel.classList.contains('open') && !isMaster) renderChatMensagens();
+    });
+  }
+}
+function abrirChat(){
+  const panel=document.getElementById('chatPanel');
+  const bd=document.getElementById('chatBackdrop');
+  if(!panel) return;
+  panel.classList.add('open');
+  if(bd) bd.style.display='block';
+  const title=document.getElementById('chatTitle');
+  if(title) title.textContent = isMaster ? '💬 Conversas com os Setores' : '💬 Mensagens com o Estoque (Elton)';
+  const hint=document.getElementById('chatHint');
+  if(hint) hint.textContent = isMaster ? 'Toque em uma conversa para responder.' : 'Fale direto com o Elton (Estoque) e receba as respostas aqui.';
+  if(isMaster) renderChatThreads(); else renderChatMensagens();
+}
+function fecharChat(){
+  const panel=document.getElementById('chatPanel');
+  const bd=document.getElementById('chatBackdrop');
+  if(panel) panel.classList.remove('open');
+  if(bd) bd.style.display='none';
+}
+function renderChatThreads(){
+  const wrap=document.getElementById('chatThreadsWrap');
+  const box=document.getElementById('chatMsgs');
+  if(!wrap||!box) return;
+  const entries=Object.entries(_chatThreads).sort((a,b)=>lastTs(b[1])-lastTs(a[1]));
+  if(!entries.length){ wrap.style.display='none'; box.innerHTML='<div class="nc-empty"><div class="nc-empty-icon">💬</div><p>Nenhuma conversa ainda.</p></div>'; return; }
+  wrap.style.display='block';
+  wrap.innerHTML=entries.map(([k,t])=>{
+    const msgs=Object.values(t.itens||{}).sort((a,b)=>(a.ts||0)-(b.ts||0));
+    const last=msgs[msgs.length-1];
+    const unread=msgs.filter(m=>m.de!=='ESTOQUE'&&!m.lidaPorEstoque).length;
+    return `<div class="chat-thread-item ${k===_chatSel?'ativo':''}" onclick="selecionarThreadChat('${k}')">
+      <div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><strong style="font-size:.86rem">${_esc(t.nome||k)}</strong>${unread?`<span style="background:#f44336;color:#fff;border-radius:8px;font-size:.68rem;padding:1px 7px;font-weight:800">${unread}</span>`:''}</div>
+      <div style="font-size:.72rem;color:var(--muted);margin-top:2px">${t.setor?('🏢 '+_esc(t.setor)+' · '):''}${last?_esc((last.de==='ESTOQUE'?'Você: ':'')+String(last.texto||'').slice(0,38)):''}</div>
+    </div>`;
+  }).join('');
+  if(!_chatSel || !_chatThreads[_chatSel]) _chatSel=entries[0][0];
+  renderChatMensagens();
+}
+function selecionarThreadChat(k){
+  _chatSel=k;
+  const t=_chatThreads[k]||{};
+  Object.entries(t.itens||{}).forEach(([id,m])=>{
+    if(m.de!=='ESTOQUE' && !m.lidaPorEstoque){ db.ref('mensagens/'+k+'/itens/'+id+'/lidaPorEstoque').set(true).catch(()=>{}); }
+  });
+  renderChatThreads();
+}
+function renderChatMensagens(){
+  const box=document.getElementById('chatMsgs'); if(!box) return;
+  const tk = isMaster ? _chatSel : _threadKey(usuarioAtual);
+  const t=_chatThreads[tk]||{};
+  const msgs=Object.values(t.itens||{}).sort((a,b)=>(a.ts||0)-(b.ts||0));
+  box.innerHTML = msgs.length ? msgs.map(m=>{
+    const eu = isMaster ? m.de==='ESTOQUE' : m.de!=='ESTOQUE';
+    const quando = m.ts ? new Date(m.ts).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
+    return `<div class="chat-msg ${eu?'chat-me':'chat-them'}">${_esc(m.texto||'')}<div style="font-size:.62rem;opacity:.7;margin-top:3px">${quando}</div></div>`;
+  }).join('') : '<div class="nc-empty"><div class="nc-empty-icon">💬</div><p>Nenhuma mensagem ainda.<br>Envie a primeira!</p></div>';
+  box.scrollTop=box.scrollHeight;
+}
+function lastTs(t){ let mx=0; Object.values(t.itens||{}).forEach(m=>{ if((m.ts||0)>mx) mx=m.ts; }); return mx; }
+function enviarMensagemChat(){
+  if(!db){ toast('Sem conexão Firebase'); return; }
+  const inp=document.getElementById('chatInput');
+  const txt=(inp.value||'').trim(); if(!txt) return;
+  if(isMaster){
+    if(!_chatSel){ toast('Selecione uma conversa'); return; }
+    db.ref('mensagens/'+_chatSel+'/itens').push({de:'ESTOQUE',texto:txt,ts:Date.now(),lidaPorEstoque:true,lidaPorUser:false})
+      .then(()=>{ inp.value=''; }).catch(e=>toast('Erro: '+e.message));
+  } else {
+    const tk=_threadKey(usuarioAtual);
+    db.ref('mensagens/'+tk+'/itens').push({de:usuarioAtual,para:'ESTOQUE',texto:txt,ts:Date.now(),setor:setorUsuario||'',lidaPorEstoque:false,lidaPorUser:true})
+      .then(()=>{ inp.value=''; }).catch(e=>toast('Erro: '+e.message));
+    db.ref('mensagens/'+tk+'/nome').set(usuarioAtual).catch(()=>{});
+    db.ref('mensagens/'+tk+'/setor').set(setorUsuario||'').catch(()=>{});
+  }
+}
+
+// ================================================================
+// 🔔 ALARME INSISTENTE ATÉ RETIRAR  (alteração 2)
+// ================================================================
+let _alarmeTimer = null;
+let _prontosIds = [];
+function verificarAlarmeRetirada(){
+  if(isMaster || !usuarioAtual){ pararAlarmeRetirada(); return; }
+  const prontos = Object.entries(reqsSnapshot).filter(([id,r])=>
+    r.setor===setorUsuario &&
+    normalizarNome(r.requisitante)===normalizarNome(usuarioAtual) &&
+    normalizeTrackStatus(r.trackStatus||'recebido')==='aguardando_retirada'
+  );
+  _prontosIds = prontos.map(([id])=>id);
+  if(prontos.length) iniciarAlarmeRetirada(); else pararAlarmeRetirada();
+}
+function iniciarAlarmeRetirada(){
+  const b=document.getElementById('retiradaAlerta'); if(!b) return;
+  b.classList.add('show','pulsando');
+  b.innerHTML=`<div class="retirada-emoji">🔔</div>
+    <div style="flex:1">
+      <div style="font-weight:900;font-size:.98rem">PRONTO PARA RETIRAR!</div>
+      <div style="font-size:.76rem;opacity:.95">${_prontosIds.length} pedido(s) aguardando retirada no almoxarifado.</div>
+    </div>
+    <button onclick="confirmarRetiradaPropria()" style="background:#fff;color:#c62828;border:none;border-radius:10px;padding:10px 12px;font-weight:800;font-size:.78rem;cursor:pointer;white-space:nowrap">✅ Já retirei</button>`;
+  if(_alarmeTimer) return;
+  _alarmeTimer=setInterval(()=>{
+    if(!_prontosIds.length){ pararAlarmeRetirada(); return; }
+    tocarSom('urgente');
+    try{ navigator.vibrate && navigator.vibrate([300,120,300,120,600]); }catch(e){}
+    const b2=document.getElementById('retiradaAlerta'); if(b2) b2.classList.add('pulsando');
+  }, 20000);
+}
+function pararAlarmeRetirada(){
+  const b=document.getElementById('retiradaAlerta');
+  if(b){ b.classList.remove('show','pulsando'); b.innerHTML=''; }
+  if(_alarmeTimer){ clearInterval(_alarmeTimer); _alarmeTimer=null; }
+  _prontosIds=[];
+}
+function confirmarRetiradaPropria(){
+  if(!_prontosIds.length) return;
+  if(!confirm('Confirmar que você já retirou este pedido?')) return;
+  if(db){
+    _prontosIds.forEach(id=>{ db.ref('requisicoes/'+id+'/trackStatus').set('retirado').catch(()=>{}); });
+  }
+  pararAlarmeRetirada();
+  toast('✅ Retirada confirmada!',3000,'success');
+}
+
+// ================================================================
+// ⚡ FORCE UPDATE ROBUSTO  (alteração 2)
+// ================================================================
+function escutarForceUpdate(){
+  if(!db) return;
+  db.ref('config/forceUpdate').on('value', snap=>{
+    const d=snap.val();
+    if(!d || !d.ts) return;
+    const visto = Number(localStorage.getItem('reqElton_forceTs')||0);
+    if(d.ts <= visto) return;
+    localStorage.setItem('reqElton_forceTs', String(d.ts));
+    executarForcaAtualizacao(d.nota||'O aplicativo foi atualizado.');
+  });
+}
+function executarForcaAtualizacao(nota){
+  if(document.getElementById('forceOverlay')) return;
+  const ov=document.createElement('div');
+  ov.id='forceOverlay'; ov.style.display='flex';
+  let seg=6;
+  ov.innerHTML=`<div style="font-size:3.4rem;margin-bottom:14px">⚡</div>
+    <div style="font-size:1.45rem;font-weight:900;margin-bottom:8px">Atualização necessária</div>
+    <div style="font-size:.95rem;max-width:340px;line-height:1.55;opacity:.95;margin-bottom:20px">${_esc(nota)}<br>O app vai atualizar automaticamente.</div>
+    <div style="font-size:2.2rem;font-weight:900" id="forceCount">${seg}</div>`;
+  document.body.appendChild(ov);
+  const t=setInterval(()=>{
+    seg--;
+    const c=document.getElementById('forceCount'); if(c) c.textContent=Math.max(seg,0);
+    if(seg<=0){ clearInterval(t); _aplicarAtualizacaoTotal(); }
+  },1000);
+}
+
+// ================================================================
+// 📲 PROMPT DE INSTALAÇÃO (nome + ícone)  (alteração 2)
+// ================================================================
+function mostrarPromptInstalar(forcar){
+  if(jaTemApp() && !forcar) return;
+  const _dis = Number(localStorage.getItem('pwa_install_dismissed')||0);
+  if(!forcar && _dis && (Date.now()-_dis) < 86400000) return;
+  if(document.getElementById('installModal')) return;
+  const ios=isIOSDevice();
+  const m=document.createElement('div');
+  m.id='installModal';
+  m.style.cssText='position:fixed;inset:0;background:rgba(8,12,40,.75);z-index:99999;display:flex;align-items:center;justify-content:center;padding:18px';
+  m.innerHTML=`<div style="background:#fff;border-radius:22px;max-width:390px;width:100%;padding:26px 22px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.5)">
+    <img src="icons/icon-192.png" style="width:94px;height:94px;border-radius:22px;box-shadow:0 8px 24px rgba(26,35,126,.35);margin-bottom:14px">
+    <div style="font-size:1.25rem;font-weight:900;color:#1a237e;letter-spacing:.5px">REQUISIÇÃO ELTON</div>
+    <div style="font-size:.85rem;color:#666;margin:8px 0 18px;line-height:1.55">${ios?'Para ter o app na área de trabalho, toque em <b>Compartilhar 📤</b> e depois em <b>“Adicionar à Tela de Início”</b>.':'Baixe o app na sua área de trabalho para abrir com um toque e receber as notificações em tempo real.'}</div>
+    ${ios?'':`<button onclick="instalarAppAgora()" style="width:100%;background:linear-gradient(135deg,#e65100,#ff6f00);color:#fff;border:none;border-radius:12px;padding:14px;font-size:1rem;font-weight:800;cursor:pointer;margin-bottom:8px">📲 Baixar app na área de trabalho</button>`}
+    <button onclick="document.getElementById('installModal').remove();localStorage.setItem('pwa_install_dismissed',Date.now())" style="width:100%;background:#f5f5f5;color:#666;border:none;border-radius:12px;padding:11px;font-size:.85rem;font-weight:700;cursor:pointer">Agora não</button>
+  </div>`;
+  document.body.appendChild(m);
+}
+function instalarAppAgora(){
+  const m=document.getElementById('installModal'); if(m) m.remove();
+  if(deferredPrompt){
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then(r=>{ if(r.outcome==='accepted') localStorage.setItem('pwa_installed','1'); deferredPrompt=null; });
+  } else {
+    toast('Use o menu do navegador → “Instalar app” / “Adicionar à tela inicial”.', 4500, 'info');
+  }
+}
+function jaTemApp(){ return isStandalone() || localStorage.getItem('pwa_installed')==='1'; }
+
+// Escuta versão do app / force update assim que Firebase iniciar
+setTimeout(() => { if (db) { escutarVersaoApp(); escutarForceUpdate(); } }, 2000);
 
 </script>
 
@@ -4159,18 +4834,7 @@ function jaInstalado() {
 window.addEventListener('beforeinstallprompt', e => {
   e.preventDefault();
   deferredPrompt = e;
-  setTimeout(() => {
-    if (!jaInstalado()) showInstallBanner('android');
-  }, 3000);
-});
-
-// iOS — não tem beforeinstallprompt, mostramos instruções
-window.addEventListener('load', () => {
-  setTimeout(() => {
-    if (!jaInstalado() && isIOSDevice()) {
-      showInstallBanner('ios');
-    }
-  }, 4000);
+  // O prompt de instalação é controlado por mostrarPromptInstalar() ao abrir/entrar
 });
 
 function showInstallBanner(tipo) {
