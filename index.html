@@ -2144,8 +2144,8 @@ function renderReqBody(id, req) {
 
   const status = calcStatusGeral(req);
   const curTrack = normalizeTrackStatus(req.trackStatus || 'recebido');
-  const curIdx = TRACK_STEPS.indexOf(curTrack);
-  const proxStep = TRACK_STEPS[curIdx + 1];
+  const curIdx = MASTER_TRACK_STEPS.indexOf(curTrack);
+  const proxStep = MASTER_TRACK_STEPS[curIdx + 1];
   const TRACK_LABELS_BTN = {
     visualizado:         '👁️ Marcar VISUALIZADO',
     separacao:           '📦 Em SEPARAÇÃO',
@@ -2153,7 +2153,7 @@ function renderReqBody(id, req) {
     aguardando_retirada: '🔔 AGUARDANDO RETIRADA',
     retirado:            '🏁 Marcar RETIRADO'
   };
-  const trackBtnHtml = proxStep ? `<button class="btn btn-accent" onclick="updateTrackStatus('${id}','${proxStep}')" style="font-size:.8rem">${TRACK_LABELS_BTN[proxStep]||proxStep}</button>` : `<span style="font-size:.8rem;color:#2e7d32;font-weight:700">🏁 Requisição RETIRADA!</span>`;
+  const trackBtnHtml = proxStep ? `<button class="btn btn-accent" onclick="updateTrackStatus('${id}','${proxStep}')" style="font-size:.8rem">${TRACK_LABELS_BTN[proxStep]||proxStep}</button>` : (curTrack==='conferido' ? `<span style="font-size:.8rem;color:#1565c0;font-weight:700">🔍 Requisição CONFERIDA pelo setor!</span>` : `<span style="font-size:.8rem;color:#2e7d32;font-weight:700">🏁 Requisição RETIRADA!</span>`);
 
   return html + `<div class="req-actions">
     ${trackBtnHtml}
@@ -2554,7 +2554,9 @@ function escutarContagens() {
 // ================================================================
 // TRACK STATUS — TIMELINE DE COMUNICAÇÃO ENTRE SETORES
 // ================================================================
-const TRACK_STEPS = ['recebido','visualizado','separacao','finalizado','aguardando_retirada','retirado'];
+const TRACK_STEPS = ['recebido','visualizado','separacao','finalizado','aguardando_retirada','retirado','conferido'];
+// Até onde o MASTER avança o status (o passo 'conferido' é dado pelo próprio setor na conferência)
+const MASTER_TRACK_STEPS = ['recebido','visualizado','separacao','finalizado','aguardando_retirada','retirado'];
 const TRACK_LABELS = {
   recebido:'RECEBIDO',
   visualizado:'VISUALIZADO',
@@ -2562,12 +2564,13 @@ const TRACK_LABELS = {
   finalizado:'FINALIZADO',
   aguardando_retirada:'AGUARD. RETIRADA',
   retirado:'RETIRADO',
+  conferido:'CONFERIDO',
   // legacy (dados antigos no Firebase)
   enviada:'RECEBIDO', lida:'VISUALIZADO', pronto:'AGUARD. RETIRADA', retirada:'RETIRADO'
 };
 const TRACK_ICONS = {
   recebido:'📥', visualizado:'👁️', separacao:'📦',
-  finalizado:'✅', aguardando_retirada:'🔔', retirado:'🏁',
+  finalizado:'✅', aguardando_retirada:'🔔', retirado:'🏁', conferido:'🔍',
   enviada:'📥', lida:'👁️', pronto:'🔔', retirada:'🏁'
 };
 // Normaliza status legados para o novo padrão
@@ -2675,8 +2678,8 @@ function renderProgressBar(id, ts, req) {
     let cls = 'wait', lCls = '';
     if (i < curIdx) { cls = 'done'; lCls = 'done'; }
     else if (i === curIdx) { cls = 'current'; lCls = 'current'; }
-    const icons = {recebido:'📥',visualizado:'👁',separacao:'📦',finalizado:'✅',aguardando_retirada:'🔔',retirado:'🏁'};
-    const labels = {recebido:'Recebido',visualizado:'Visto',separacao:'Separa.',finalizado:'Finaliz.',aguardando_retirada:'Pronto!',retirado:'Retirado'};
+    const icons = {recebido:'📥',visualizado:'👁',separacao:'📦',finalizado:'✅',aguardando_retirada:'🔔',retirado:'🏁',conferido:'🔍'};
+    const labels = {recebido:'Recebido',visualizado:'Visto',separacao:'Separa.',finalizado:'Finaliz.',aguardando_retirada:'Pronto!',retirado:'Retirado',conferido:'Conferido'};
     return `<div class="req-prog-step-dot ${cls}">
       <div class="rpsd-circle ${cls}">${i < curIdx ? '✓' : icons[step]||'·'}</div>
       <div class="rpsd-label ${lCls}">${labels[step]||step}</div>
@@ -2686,7 +2689,7 @@ function renderProgressBar(id, ts, req) {
   return `<div class="req-progress-wrap">
     <div class="req-progress-header">
       <span class="req-progress-title">📍 Progresso da Requisição</span>
-      <span class="req-progress-pct">${pct}% ${ts==='retirado'?'— Concluído!':''}</span>
+      <span class="req-progress-pct">${pct}% ${(ts==='retirado'||ts==='conferido')?'— Concluído!':''}</span>
     </div>
     <div class="req-progress-bar">
       <div class="req-progress-fill step-${ts}" style="width:${pct}%"></div>
@@ -2704,17 +2707,26 @@ function renderFuncReqStatus() {
   const area = document.getElementById('funcReqStatusList');
   if (!area) return;
 
+  // 🔍 CONFERÊNCIA EM DESTAQUE — aparece ANTES do espelho
+  const _pendConf = temConferenciaPendente();
+  const _confBanner = _pendConf.length ? `<div class="conf-banner" style="margin:0 0 12px">
+      <div class="conf-ic">🔍</div>
+      <div style="flex:1"><b>CONFERÊNCIA OBRIGATÓRIA DO SETOR</b><span>Este setor tem ${_pendConf.length} requisição(ões) retirada(s) para conferir. Confira os itens, informe as quantidades conferidas e conclua para liberar novas requisições.</span></div>
+      <button onclick="abrirConferencia('${_pendConf[0]}')">Conferir agora</button>
+    </div>` : '';
+
   // 📋 ESPELHO DO SETOR: todos os operadores do setor veem as ÚLTIMAS 3 requisições.
   // A requisição não é apagada no ato: fica no mínimo 48h e some por setor a cada 3.
   const todasSetor = _reqsEspelhoSetor(setorUsuario);
 
   // Requisições RETIRADAS somem da tela ativa (ficam só no histórico recolhível)
-  const minhasReqs = todasSetor.filter(([,r]) => normalizeTrackStatus(r.trackStatus||'recebido') !== 'retirado');
-  const minhasConcluidas = todasSetor.filter(([,r]) => normalizeTrackStatus(r.trackStatus||'recebido') === 'retirado');
+  const _fim = (r) => ['retirado','conferido'].includes(normalizeTrackStatus(r.trackStatus||'recebido'));
+  const minhasReqs = todasSetor.filter(([,r]) => !_fim(r));
+  const minhasConcluidas = todasSetor.filter(([,r]) => _fim(r));
 
   // Se o setor não tiver requisições ativas, mostrar aviso
   if (!minhasReqs.length) {
-    area.innerHTML = `<div class="empty"><div class="icon">📭</div><p>Nenhuma requisição em andamento neste setor.</p><p style="font-size:.78rem;margin-top:6px;color:var(--muted)">O espelho mostra as 3 últimas requisições do setor ${_esc(setorUsuario||'')} com barra de progresso em tempo real.</p></div>` + _renderFuncConcluidasHtml(minhasConcluidas);
+    area.innerHTML = _confBanner + `<div class="empty"><div class="icon">📭</div><p>Nenhuma requisição em andamento neste setor.</p><p style="font-size:.78rem;margin-top:6px;color:var(--muted)">O espelho mostra as 3 últimas requisições do setor ${_esc(setorUsuario||'')} com barra de progresso em tempo real.</p></div>` + _renderFuncConcluidasHtml(minhasConcluidas);
     const badge = document.getElementById('badge-func-status');
     if (badge) badge.style.display = 'none';
     return;
@@ -2744,7 +2756,7 @@ function renderFuncReqStatus() {
   // Header com badge do espelho do setor
   const myBadge = `<div class="my-reqs-badge">🏢 Espelho do setor ${_esc(setorUsuario||'')} — ${minhasReqs.length} requisição(ões) em andamento · visível a todos os operadores</div>`;
 
-  area.innerHTML = myBadge + minhasReqs.map(([id, req]) => {
+  area.innerHTML = _confBanner + myBadge + minhasReqs.map(([id, req]) => {
     const ts = normalizeTrackStatus(req.trackStatus || 'recebido');
     const hora = req.timestamp ? new Date(req.timestamp).toLocaleString('pt-BR', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
     const pillClass = 'pill-'+ts;
@@ -2788,7 +2800,7 @@ function renderFuncReqStatus() {
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             ${isMinha?`<button class="btn btn-primary" style="font-size:.78rem;padding:9px 14px" onclick="event.stopPropagation();fAddItemSentModal('${id}')">➕ Acrescentar item a este pedido</button>`:''}
             <button class="btn btn-secondary" style="font-size:.78rem;padding:9px 14px" onclick="event.stopPropagation();gerarEspelhoRequisicao('${id}')">📄 Baixar Espelho</button>
-            ${(ts==='aguardando_retirada' && !(req.conferencia&&req.conferencia.concluida)) ? `<button class="btn btn-success" style="font-size:.78rem;padding:9px 14px" onclick="event.stopPropagation();abrirConferencia('${id}')">🔍 Conferir e Retirar</button>` : ''}
+            ${(['aguardando_retirada','retirado'].includes(ts) && !(req.conferencia&&req.conferencia.concluida)) ? `<button class="btn btn-success" style="font-size:.78rem;padding:9px 14px" onclick="event.stopPropagation();abrirConferencia('${id}')">🔍 Conferir agora</button>` : ''}
           </div>
           <p style="font-size:.7rem;color:var(--muted);margin-top:6px">Você pode adicionar itens que esqueceu enquanto o pedido não for retirado — assim não precisa fazer um novo pedido.</p>
         </div>
@@ -2805,7 +2817,7 @@ function _renderFuncConcluidasHtml(concluidas) {
     return `<div style="padding:9px 12px;border-bottom:1px solid #f0f0f0;font-size:.82rem">
       <div style="display:flex;justify-content:space-between;gap:8px">
         <span>🏁 ${req.setor} · ${hora} · ${totalItens} item${totalItens!==1?'s':''}</span>
-        <span style="color:#2e7d32;font-weight:700">Retirado${req.conferencia&&req.conferencia.concluida?' • Conferido':''}</span>
+        <span style="color:${normalizeTrackStatus(req.trackStatus||'')==='conferido'?'#1565c0':'#2e7d32'};font-weight:700">${normalizeTrackStatus(req.trackStatus||'')==='conferido'?'🔍 Conferido':'🏁 Retirado'}</span>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
         <button class="btn btn-secondary" style="font-size:.72rem;padding:6px 10px" onclick="gerarEspelhoRequisicao('${id}')">📄 Espelho</button>
@@ -3483,31 +3495,29 @@ function renderRelatorios() {
     }).map(([id, r]) => ({id, r, ts: (r.conferencia.ts || r.timestamp || 0)}))
       .sort((a,b) => b.ts - a.ts);
     if (!confs.length) {
-      confEl.innerHTML = '<div class="empty" style="padding:16px"><p>Nenhuma conferência concluída no período.</p><p style="font-size:.78rem;color:var(--muted);margin-top:6px">As conferências aparecem aqui assim que um operador concluir a conferência de uma requisição liberada para retirada (status "aguardando retirada").</p></div>';
+      confEl.innerHTML = '<div class="empty" style="padding:16px"><p>Nenhuma conferência concluída no período.</p><p style="font-size:.78rem;color:var(--muted);margin-top:6px">As conferências aparecem aqui assim que um operador do setor concluir a conferência de uma requisição que o estoque marcou como RETIRADO (ou "aguardando retirada").</p></div>';
     } else {
       const porDia = {};
       confs.forEach(c => {
         const dia = new Date(c.ts).toLocaleDateString('pt-BR');
         if (!porDia[dia]) porDia[dia] = {};
         const setor = c.r.setor || '—';
-        if (!porDia[dia][setor]) porDia[dia][setor] = {};
-        const pessoa = (c.r.conferencia && c.r.conferencia.por) || '—';
-        if (!porDia[dia][setor][pessoa]) porDia[dia][setor][pessoa] = {qtd:0, atend:0, nao:0};
-        const g = porDia[dia][setor][pessoa];
-        g.qtd++;
-        g.atend += (c.r.conferencia.resumo && c.r.conferencia.resumo.atendidos) || 0;
-        g.nao += (c.r.conferencia.resumo && c.r.conferencia.resumo.naoAtendidos) || 0;
+        if (!porDia[dia][setor]) porDia[dia][setor] = [];
+        porDia[dia][setor].push(c);
       });
-      let htmlConf = `<p style="font-size:.78rem;color:var(--muted);margin-bottom:8px">${confs.length} conferência(s) no período — agrupadas por dia, setor e pessoa.</p>`;
+      let htmlConf = `<p style="font-size:.78rem;color:var(--muted);margin-bottom:8px">${confs.length} conferência(s) no período — por dia, setor e pessoa. Toque em <b>📋 Relatório</b> para abrir/baixar o PDF com as quantidades conferidas.</p>`;
       Object.keys(porDia).forEach(dia => {
         htmlConf += `<div style="font-weight:800;color:#1a237e;margin:12px 0 4px">📅 ${dia}</div>`;
         Object.keys(porDia[dia]).forEach(setor => {
           htmlConf += `<div style="font-weight:700;font-size:.85rem;margin:6px 0 2px">🏢 ${_esc(setor)}</div>`;
-          Object.keys(porDia[dia][setor]).forEach(pessoa => {
-            const g = porDia[dia][setor][pessoa];
-            htmlConf += `<div style="display:flex;justify-content:space-between;gap:8px;padding:6px 10px;border-bottom:1px solid #f0f0f0;font-size:.83rem;flex-wrap:wrap">
-              <span>👤 <b>${_esc(pessoa)}</b></span>
-              <span>${g.qtd} conferência(s) · <span style="color:#2e7d32;font-weight:700">${g.atend} atendidos</span> · <span style="color:#c62828;font-weight:700">${g.nao} não atendidos</span></span>
+          porDia[dia][setor].forEach(c => {
+            const r = c.r; const cc = r.conferencia || {};
+            const confTotal = (cc.resumo && cc.resumo.totalConferido!==undefined) ? cc.resumo.totalConferido : '—';
+            const horaConf = c.ts ? new Date(c.ts).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) : '';
+            htmlConf += `<div style="display:flex;justify-content:space-between;gap:8px;padding:7px 10px;border-bottom:1px solid #f0f0f0;font-size:.82rem;flex-wrap:wrap;align-items:center">
+              <span>👤 <b>${_esc(cc.por||'—')}</b> · req: ${_esc(r.requisitante||'—')} · ${horaConf}</span>
+              <span><span style="color:#2e7d32;font-weight:700">${(cc.resumo&&cc.resumo.atendidos)||0} atendidos</span> · <span style="color:#c62828;font-weight:700">${(cc.resumo&&cc.resumo.naoAtendidos)||0} não</span> · <span style="color:#1565c0;font-weight:700">conferido: ${confTotal}</span></span>
+              <button class="btn btn-primary" style="font-size:.72rem;padding:5px 10px" onclick="gerarRelatorioConferencia('${c.id}')">📋 Relatório</button>
             </div>`;
           });
         });
@@ -4328,7 +4338,7 @@ function escutarProdutosExtra() {
 // ================================================================
 // SISTEMA DE VERSÃO / ATUALIZAÇÃO DO APP
 // ================================================================
-const APP_VERSAO_LOCAL = '3.3.0'; // conferência por setor + espelho 3/48h + relatório anual + relatório de conferências em destaque
+const APP_VERSAO_LOCAL = '3.4.0'; // conferencia por setor + CONFERIDO no rastreamento + qtd conferida + relatorio anual/conferencias
 const URL_CORRETA = 'https://controladoriaamano-prog.github.io/requisicao-elton';
 let appVersaoAnterior = null;
 
@@ -4928,7 +4938,7 @@ function temConferenciaPendente(){
   return Object.entries(reqsSnapshot)
     .filter(([id,r]) =>
       r.setor===setorUsuario &&
-      normalizeTrackStatus(r.trackStatus||'recebido')==='aguardando_retirada' &&
+      ['aguardando_retirada','retirado'].includes(normalizeTrackStatus(r.trackStatus||'recebido')) &&
       !(r.conferencia && r.conferencia.concluida)
     )
     .sort((a,b) => (a[1].timestamp||0) - (b[1].timestamp||0))
@@ -4960,6 +4970,8 @@ function abrirConferencia(reqId){
   if (!req) { toast('Requisição não encontrada'); return; }
   _confReqId = reqId;
   window._confChecked = {};
+  window._confQtd = {};
+  _reqAllItems(req).forEach(it => { window._confQtd[it.key] = it.qty; });
   renderConferencia();
   openModal('modalConferencia');
 }
@@ -4973,10 +4985,16 @@ function renderConferencia(){
     const lbl = it.status==='atendido'?'✓ ATENDIDO':it.status==='nao_atendido'?'✗ NÃO ATENDIDO':'⏳ PENDENTE';
     const mot = it.status==='nao_atendido' ? `<div style="font-size:.74rem;color:#c62828;margin-top:3px">Motivo: <b>${_esc(it.motivo||'não informado')}</b></div>` : '';
     const checked = window._confChecked[it.key] ? 'checked' : '';
+    const qtdVal = (window._confQtd && window._confQtd[it.key] !== undefined && window._confQtd[it.key] !== null) ? window._confQtd[it.key] : it.qty;
     return `<div class="conf-item">
       <input type="checkbox" ${checked} onchange="confMarcar('${it.key}',this.checked)">
       <div class="conf-name"><span class="item-cod">${_esc(it.cod)}</span> ${_esc(it.nome)}${it.extra?' <small style="color:#999">(extra)</small>':''}
-        <div style="font-size:.76rem;color:#666;margin-top:2px">Solicitado: <b>${it.qty} ${_esc(it.un)}</b></div>${mot}</div>
+        <div style="font-size:.76rem;color:#666;margin-top:2px">Solicitado: <b>${it.qty} ${_esc(it.un)}</b></div>
+        <div style="display:flex;align-items:center;gap:6px;margin-top:4px">
+          <span style="font-size:.72rem;color:#555;font-weight:700">Qtd conferida:</span>
+          <input type="number" min="0" step="0.01" value="${qtdVal}" oninput="confSetQtd('${it.key}',this.value)" style="width:78px;padding:4px 6px;border:2px solid #c5cae9;border-radius:8px;font-size:.82rem;font-weight:700">
+          <span style="font-size:.72rem;color:#555">${_esc(it.un)}</span>
+        </div>${mot}</div>
       <span class="conf-st ${cls}">${lbl}</span>
     </div>`;
   }).join('');
@@ -4990,7 +5008,7 @@ function renderConferencia(){
       <div class="cr"><b style="color:#e65100">${r.pend}</b><span>Pendentes</span></div>
     </div>
     <div style="background:#fff8e1;border:1px solid #ffe0a3;border-radius:10px;padding:10px 12px;font-size:.8rem;color:#8a5a00;margin-bottom:10px">
-      🔍 Confira item por item o que foi <b>atendido</b> e o que <b>não foi</b> (com o motivo). Marque o <b>OK</b> em cada item para concluir.
+      🔍 Confira item por item o que foi <b>atendido</b> e o que <b>não foi</b> (com o motivo). Informe a <b>quantidade conferida</b> e marque o <b>OK</b> em cada item. Ao concluir, a requisição entra no rastreamento como <b>CONFERIDO</b>.
     </div>
     <div id="confItems">${rows||'<div class="empty"><p>Sem itens</p></div>'}</div>
     <label class="conf-check-all"><input type="checkbox" id="confCheckAll" onchange="confMarcarTudo(this.checked)"> Confirmo que conferi todos os itens desta requisição</label>
@@ -4998,13 +5016,14 @@ function renderConferencia(){
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
       <button class="btn btn-secondary" style="flex:1" onclick="gerarEspelhoRequisicao('${reqId}')">📄 Baixar Espelho</button>
       ${jaConf?`<button class="btn btn-primary" style="flex:1" onclick="gerarRelatorioConferencia('${reqId}')">📄 Relatório de Conferência</button>`
-             :`<button class="btn btn-success" style="flex:1" id="btnConcluirConf" onclick="concluirConferencia()">✅ Concluir Conferência e Retirar</button>`}
+             :`<button class="btn btn-success" style="flex:1" id="btnConcluirConf" onclick="concluirConferencia()">✅ Concluir Conferência (CONFERIDO)</button>`}
     </div>
     <p style="font-size:.72rem;color:var(--muted);margin-top:8px;text-align:center">Ao concluir, um relatório de conferência é gerado para o Elton e a tela é liberada para novas requisições.</p>
   `;
   _atualizarBtnConcluir();
 }
 function confMarcar(key, val){ window._confChecked[key]=val; _atualizarBtnConcluir(); }
+function confSetQtd(key, val){ if(!window._confQtd) window._confQtd={}; window._confQtd[key]=val; }
 function confMarcarTudo(val){
   const req = reqsSnapshot[_confReqId]; if(!req) return;
   _reqAllItems(req).forEach(it => { window._confChecked[it.key]=val; });
@@ -5038,27 +5057,27 @@ function concluirConferencia(){
     requisitante: req.requisitante,
     data: req.data||'',
     hora: req.hora||'',
-    itens: itens.reduce((a,it)=>{ a[it.key]={ok:true,status:it.status||'pendente',motivo:it.motivo||''}; return a; },{}),
-    resumo: {total:r.total, atendidos:r.atendidos, naoAtendidos:r.nao, pendentes:r.pend}
+    itens: itens.reduce((a,it)=>{ const qc = (window._confQtd && window._confQtd[it.key]!==undefined && window._confQtd[it.key]!=='') ? parseFloat(window._confQtd[it.key]) : (parseFloat(it.qty)||0); a[it.key]={ok:true,status:it.status||'pendente',motivo:it.motivo||'',qtd:it.qty,qtdConf:isNaN(qc)?(parseFloat(it.qty)||0):qc}; return a; },{}),
+    resumo: {total:r.total, atendidos:r.atendidos, naoAtendidos:r.nao, pendentes:r.pend, totalConferido: itens.reduce((s,it)=>{ const qc=(window._confQtd && window._confQtd[it.key]!==undefined && window._confQtd[it.key]!=='')?parseFloat(window._confQtd[it.key]):(parseFloat(it.qty)||0); return s+(isNaN(qc)?0:qc); },0)}
   };
-  const novHist = [...(req.trackHistory||[]), {status:'retirado', ts:Date.now(), por:usuarioAtual, conferido:true}];
+  const novHist = [...(req.trackHistory||[]), {status:'conferido', ts:Date.now(), por:usuarioAtual, conferido:true}];
   const updates = {};
   updates[`requisicoes/${reqId}/conferencia`] = conf;
-  updates[`requisicoes/${reqId}/trackStatus`] = 'retirado';
+  updates[`requisicoes/${reqId}/trackStatus`] = 'conferido';
   updates[`requisicoes/${reqId}/trackHistory`] = novHist;
   const finalizar = () => {
-    reqsSnapshot[reqId] = Object.assign({}, reqsSnapshot[reqId], {conferencia:conf, trackStatus:'retirado', trackHistory:novHist});
+    reqsSnapshot[reqId] = Object.assign({}, reqsSnapshot[reqId], {conferencia:conf, trackStatus:'conferido', trackHistory:novHist});
     try { cacheSnap('reqs', reqsSnapshot); } catch(e) {}
     fecharConferencia();
     pararAlarmeRetirada();
     renderFuncReqStatus();
     atualizarBloqueioRequisicao();
     gerarRelatorioConferencia(reqId);
-    toast('✅ Conferência concluída! Relatório gerado. Você já pode fazer uma nova requisição.', 5000, 'success');
+    toast('✅ Conferência concluída! Status agora é CONFERIDO. Relatório gerado — você já pode fazer uma nova requisição.', 5000, 'success');
   };
   if (db && !podeEnviar()) {
     enfileirarOperacao(`requisicoes/${reqId}/conferencia`, conf, {}, 'set');
-    enfileirarOperacao(`requisicoes/${reqId}/trackStatus`, 'retirado', {}, 'set');
+    enfileirarOperacao(`requisicoes/${reqId}/trackStatus`, 'conferido', {}, 'set');
     enfileirarOperacao(`requisicoes/${reqId}/trackHistory`, novHist, {}, 'set');
     finalizar();
   } else if (db) {
@@ -5110,10 +5129,13 @@ function gerarRelatorioConferencia(reqId){
   const h = req.timestamp ? new Date(req.timestamp).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) : (req.hora||'');
   const confQuando = conf.ts ? new Date(conf.ts).toLocaleString('pt-BR') : new Date().toLocaleString('pt-BR');
   const divergencias = itens.filter(i=>i.status!=='atendido');
+  const confItens = conf.itens || {};
   let rows = itens.map(it => {
     const stTxt = it.status==='atendido'?'✓ Atendido':it.status==='nao_atendido'?'✗ Não atendido':'⏳ Pendente';
     const cor = it.status==='atendido'?'#2e7d32':it.status==='nao_atendido'?'#c62828':'#e65100';
-    return `<tr><td>${it.cod}</td><td>${it.nome}${it.extra?' <small>(extra)</small>':''}</td><td style="text-align:center;font-weight:700">${it.qty}</td><td style="text-align:center">${it.un}</td><td style="color:${cor};font-weight:700">${stTxt}</td><td>${it.status==='nao_atendido'?(it.motivo||'—'):'—'}</td></tr>`;
+    const ci = confItens[it.key] || {};
+    const qtdConf = (ci.qtdConf!==undefined && ci.qtdConf!==null) ? ci.qtdConf : it.qty;
+    return `<tr><td>${it.cod}</td><td>${it.nome}${it.extra?' <small>(extra)</small>':''}</td><td style="text-align:center;font-weight:700">${it.qty}</td><td style="text-align:center">${it.un}</td><td style="text-align:center;font-weight:800;color:#1565c0">${qtdConf}</td><td style="color:${cor};font-weight:700">${stTxt}</td><td>${it.status==='nao_atendido'?(it.motivo||'—'):'—'}</td></tr>`;
   }).join('');
   let divRows = divergencias.length ? divergencias.map(it=>`<li><b>${it.nome}</b> — ${it.status==='nao_atendido'?'NÃO ATENDIDO':'PENDENTE'}${it.motivo?': '+it.motivo:''}</li>`).join('') : '<li>Nenhuma divergência — todos os itens atendidos.</li>';
   const w = window.open('','_blank');
@@ -5125,8 +5147,9 @@ function gerarRelatorioConferencia(reqId){
     <div><b style="color:#2e7d32">${r.atendidos}</b><span>Atendidos</span></div>
     <div><b style="color:#c62828">${r.nao}</b><span>Não atendidos</span></div>
     <div><b style="color:#e65100">${r.pend}</b><span>Pendentes</span></div>
+    <div><b style="color:#1565c0">${(conf.resumo&&conf.resumo.totalConferido!==undefined)?conf.resumo.totalConferido:'—'}</b><span>Total conferido</span></div>
   </div>
-  <table><thead><tr><th>Cód</th><th>Item</th><th>Qtd</th><th>Un</th><th>Status</th><th>Motivo (não atendido)</th></tr></thead><tbody>${rows||'<tr><td colspan="6">Sem itens</td></tr>'}</tbody></table>
+  <table><thead><tr><th>Cód</th><th>Item</th><th>Qtd</th><th>Un</th><th>Conferido</th><th>Status</th><th>Motivo (não atendido)</th></tr></thead><tbody>${rows||'<tr><td colspan="7">Sem itens</td></tr>'}</tbody></table>
   <h3 style="margin-top:20px;color:#c62828">⚠️ Divergências / Não atendidos</h3>
   <ul>${divRows}</ul>
   <div class="ass"><div>Assinatura do requisitante</div><div>Conferido pelo Estoque</div></div>
@@ -5147,12 +5170,13 @@ function verificarAlarmeRetirada(){
   _prontosIds = temConferenciaPendente();
   atualizarBloqueioRequisicao();
   if(_prontosIds.length) iniciarAlarmeRetirada(); else pararAlarmeRetirada();
-  // 🔒 TELA AUTOMÁTICA E PERSISTENTE: abre sozinha quando o SETOR tem conferência pendente
+  // 🔒 TELA AUTOMÁTICA E PERSISTENTE: enquanto houver conferência pendente, a tela reabre sozinha se estiver fechada
   const idPend = _prontosIds[0];
-  if(idPend && !_confAutoAberto[idPend]){
-    _confAutoAberto[idPend] = true;
+  if(idPend){
     const m = document.getElementById('modalConferencia');
-    if(!(m && m.classList.contains('open'))) setTimeout(()=>{ if(_prontosIds.includes(idPend)) abrirConferencia(idPend); }, 500);
+    if(!(m && m.classList.contains('open'))){
+      setTimeout(()=>{ if(_prontosIds.includes(idPend)) abrirConferencia(idPend); }, 400);
+    }
   }
 }
 function _notificarDispositivoConferencia(){
