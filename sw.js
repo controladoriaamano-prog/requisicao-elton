@@ -3,7 +3,7 @@
    - Sempre busca a versão nova quando ONLINE (network-first no HTML)
    - Ativa a nova versão imediatamente (skipWaiting) para forçar atualização
 */
-const CACHE = 'req-elton-offline-v4';
+const CACHE = 'req-elton-offline-v5';
 const CORE = [
   './',
   './index.html',
