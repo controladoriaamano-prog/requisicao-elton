@@ -434,6 +434,28 @@ body.tem-setor .req-card{border-left-color:var(--setor-cor,#1a237e)!important}
 /* ===== MODAL DE INSTALAÇÃO ===== */
 #installModal img{image-rendering:auto}
 
+/* ===== CONFERÊNCIA OBRIGATÓRIA (NOVO) ===== */
+.req-locked{pointer-events:none;opacity:.72;filter:saturate(.85)}
+.conf-banner{background:linear-gradient(135deg,#c62828,#ef5350);color:#fff;border-radius:14px;padding:14px 16px;margin:12px 16px;box-shadow:0 8px 24px rgba(198,40,40,.4);display:flex;align-items:center;gap:12px;animation:alarmePulse 1.6s infinite}
+.conf-banner .conf-ic{font-size:1.9rem;flex-shrink:0}
+.conf-banner b{display:block;font-size:.95rem}
+.conf-banner span{font-size:.76rem;opacity:.95;line-height:1.4;display:block}
+.conf-banner button{margin-left:auto;background:#fff;color:#c62828;border:none;border-radius:10px;padding:10px 14px;font-weight:800;font-size:.8rem;cursor:pointer;white-space:nowrap}
+.sent-banner{background:#e8f5e9;border:1px solid #a5d6a7;color:#2e7d32;border-radius:12px;padding:11px 14px;margin-bottom:12px;font-size:.82rem;font-weight:600;line-height:1.5}
+#modalConferencia .conf-item{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid #f0f0f0}
+#modalConferencia .conf-item input[type=checkbox]{width:22px;height:22px;flex-shrink:0;margin-top:2px;accent-color:#2e7d32}
+#modalConferencia .conf-name{flex:1;font-size:.86rem;line-height:1.4}
+#modalConferencia .conf-st{font-size:.72rem;font-weight:800;border-radius:6px;padding:2px 8px;white-space:nowrap}
+.conf-ok{background:#e8f5e9;color:#2e7d32}
+.conf-no{background:#ffebee;color:#c62828}
+.conf-pend{background:#fff8e1;color:#e65100}
+.conf-resumo{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0}
+.conf-resumo .cr{flex:1;min-width:90px;background:#f5f7ff;border-radius:10px;padding:10px;text-align:center}
+.conf-resumo .cr b{display:block;font-size:1.3rem;color:#1a237e}
+.conf-resumo .cr span{font-size:.68rem;color:#666}
+.conf-check-all{display:flex;align-items:center;gap:10px;background:#eef1fb;border-radius:12px;padding:12px;margin:12px 0;font-size:.85rem;font-weight:700;cursor:pointer}
+.conf-check-all input{width:22px;height:22px;accent-color:#1a237e}
+
 </style>
 </head>
 <body>
@@ -690,6 +712,7 @@ body.tem-setor .req-card{border-left-color:var(--setor-cor,#1a237e)!important}
             <option value="7">Últimos 7 dias</option>
             <option value="30" selected>Últimos 30 dias</option>
             <option value="90">Últimos 90 dias</option>
+            <option value="365">📅 RELATÓRIO ANUAL (últimos 12 meses)</option>
             <option value="0">Todo o histórico</option>
           </select>
         </div>
@@ -737,6 +760,16 @@ body.tem-setor .req-card{border-left-color:var(--setor-cor,#1a237e)!important}
     <div class="card">
       <div class="card-header" style="background:linear-gradient(90deg,#6a1b9a,#9c27b0)">🏢 RELATÓRIO POR SETOR</div>
       <div class="modal-body" id="relSetoresArea"><p>Carregando...</p></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header" style="background:linear-gradient(90deg,#00838f,#26c6da)">📅 RELATÓRIO ANUAL — MÊS A MÊS</div>
+      <div class="modal-body" id="relAnualArea"><p>Carregando...</p></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header" style="background:linear-gradient(90deg,#283593,#5c6bc0)">🔍 CONFERÊNCIAS — POR DIA / SETOR / PESSOA</div>
+      <div class="modal-body" id="relConferenciasArea"><p>Carregando...</p></div>
     </div>
 
     <div class="action-bar no-print">
@@ -917,6 +950,7 @@ body.tem-setor .req-card{border-left-color:var(--setor-cor,#1a237e)!important}
   <div class="action-bar no-print" id="fReqActionBar" style="display:none">
     <button class="btn btn-primary" onclick="fAddItemModal()">➕ Adicionar Item</button>
     <button class="btn btn-success" onclick="gerarPDFRequisicao()">📄 PDF</button>
+    <button class="btn btn-secondary" onclick="fNovaRequisicao()" id="btnNovaReq" style="display:none">🆕 Nova Requisição</button>
     <button class="btn btn-secondary" onclick="fLimparRequisicao()">🗑️ Limpar</button>
   </div>
   <div style="padding:0 16px 16px" id="fEnviarArea" style="display:none">
@@ -1120,6 +1154,14 @@ body.tem-setor .req-card{border-left-color:var(--setor-cor,#1a237e)!important}
       <div class="form-group" style="margin-bottom:16px"><label>Quantidade</label><input type="number" id="sentItemQty" value="1" min="0.01" step="0.01"></div>
       <button class="btn btn-primary btn-block" onclick="confirmAddItemSent()">✅ Adicionar ao Pedido</button>
     </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: CONFERÊNCIA OBRIGATÓRIA DA REQUISIÇÃO (NOVO) ===== -->
+<div class="modal-overlay" id="modalConferencia">
+  <div class="modal" style="max-width:620px">
+    <div class="modal-header"><span>🔍 Conferência da Requisição</span><button class="modal-close" onclick="fecharConferencia()">✕</button></div>
+    <div class="modal-body" id="confBody"></div>
   </div>
 </div>
 
@@ -2026,7 +2068,7 @@ function renderMasterReqs() {
       <div class="req-card-header" onclick="toggleReqCard('${id}')">
         <div>
           <div class="req-card-title">📦 ${req.setor} <span style="font-size:.75rem;background:#e8eaf6;color:#1a237e;border-radius:8px;padding:2px 8px">${req.requisitante}</span></div>
-          <div class="req-card-meta">📅 ${hora} · ${totalItens} item${totalItens !== 1 ? 's' : ''}</div>
+          <div class="req-card-meta">📅 ${hora} · ${totalItens} item${totalItens !== 1 ? 's' : ''}${req.conferencia && req.conferencia.concluida ? ' · 🔍 Conferido por '+_esc(req.conferencia.por||'—') : ''}</div>
         </div>
         <div class="req-card-badge ${badgeClass}">${badgeTxt}</div>
       </div>
@@ -2119,6 +2161,7 @@ function renderReqBody(id, req) {
     <button class="btn btn-warning" onclick="editarRequisicao('${id}')" style="font-size:.8rem">✏️ Editar</button>
     <button class="btn btn-danger" onclick="excluirRequisicao('${id}')">🗑️ Excluir</button>
     <button class="btn btn-secondary" onclick="gerarPDFBaixas('${id}')">📄 PDF</button>
+    ${req.conferencia && req.conferencia.concluida ? `<button class="btn btn-success" onclick="gerarRelatorioConferencia('${id}')">🔍 Relatório de Conferência</button>` : ''}
   </div>`;
 }
 
@@ -2361,6 +2404,16 @@ function limparTodasRequisicoes() {
 function enviarRequisicao() {
   const setor = document.getElementById('fSetorSelect').value;
   if (!setor) { toast('⚠️ Selecione o setor'); return; }
+
+  // 🔒 CONFERÊNCIA OBRIGATÓRIA: não deixa pedir de novo antes de conferir a requisição liberada
+  const pend = temConferenciaPendente();
+  if (pend.length) {
+    toast('🔒 Conclua a CONFERÊNCIA da requisição já liberada antes de fazer uma nova!', 4800, 'error');
+    verificarAlarmeRetirada();
+    abrirConferencia(pend[0]);
+    return;
+  }
+
   const reqS = localState.req?.[setor];
   if (!reqS || (!Object.keys(reqS.itens||{}).filter(k => (reqS.itens[k]||0) > 0).length && !(reqS.extras||[]).filter(ex => (ex.qty||0) > 0).length)) {
     toast('⚠️ Adicione pelo menos um item antes de enviar'); return;
@@ -2397,14 +2450,20 @@ function enviarRequisicao() {
   const concluir = (offline) => {
     btnEnviar.disabled = false;
     btnEnviar.textContent = '🚀 ENVIAR REQUISIÇÃO PARA ELTON';
+    // ✅ MANTÉM OS ITENS NA TELA (espelho da requisição) até o usuário iniciar uma NOVA
+    try {
+      ensureReq(setor);
+      localState.req[setor].enviadaEm = Date.now();
+      localState.req[setor].enviadaOffline = !!offline;
+      saveLocalState();
+    } catch(e) {}
+    renderFuncReqItems(setor);
+    atualizarBloqueioRequisicao();
     if (offline) {
       registrarLocal();
-      toast('📴 Offline: requisição guardada. Vai enviar sozinha quando a internet voltar.', 4200, 'info');
+      toast('📴 Offline: requisição guardada. Os itens ficam na tela até você iniciar uma nova.', 4600, 'info');
     } else {
-      toast('🚀 Requisição enviada para Elton!', 3000, 'success');
-      if (confirm('Requisição enviada com sucesso! Deseja limpar o formulário?')) {
-        fLimparRequisicao();
-      }
+      toast('🚀 Requisição enviada para Elton! Os itens ficam aqui até você iniciar uma nova requisição.', 4400, 'success');
     }
   };
   if (podeEnviar()) {
@@ -2645,18 +2704,17 @@ function renderFuncReqStatus() {
   const area = document.getElementById('funcReqStatusList');
   if (!area) return;
 
-  // FILTRO: somente as requisições do PRÓPRIO operador logado (setor + nome)
-  const todasMinhas = Object.entries(reqsSnapshot)
-    .filter(([,r]) => r.setor === setorUsuario && normalizarNome(r.requisitante) === normalizarNome(usuarioAtual))
-    .sort((a,b) => (b[1].timestamp||0) - (a[1].timestamp||0));
+  // 📋 ESPELHO DO SETOR: todos os operadores do setor veem as ÚLTIMAS 3 requisições.
+  // A requisição não é apagada no ato: fica no mínimo 48h e some por setor a cada 3.
+  const todasSetor = _reqsEspelhoSetor(setorUsuario);
 
   // Requisições RETIRADAS somem da tela ativa (ficam só no histórico recolhível)
-  const minhasReqs = todasMinhas.filter(([,r]) => normalizeTrackStatus(r.trackStatus||'recebido') !== 'retirado');
-  const minhasConcluidas = todasMinhas.filter(([,r]) => normalizeTrackStatus(r.trackStatus||'recebido') === 'retirado');
+  const minhasReqs = todasSetor.filter(([,r]) => normalizeTrackStatus(r.trackStatus||'recebido') !== 'retirado');
+  const minhasConcluidas = todasSetor.filter(([,r]) => normalizeTrackStatus(r.trackStatus||'recebido') === 'retirado');
 
-  // Se não houver requisições próprias ativas, mostrar aviso personalizado
+  // Se o setor não tiver requisições ativas, mostrar aviso
   if (!minhasReqs.length) {
-    area.innerHTML = `<div class="empty"><div class="icon">📭</div><p>Você não tem requisições em andamento, ${usuarioAtual||''}.</p><p style="font-size:.78rem;margin-top:6px;color:var(--muted)">Suas requisições aparecerão aqui com barra de progresso em tempo real.</p></div>` + _renderFuncConcluidasHtml(minhasConcluidas);
+    area.innerHTML = `<div class="empty"><div class="icon">📭</div><p>Nenhuma requisição em andamento neste setor.</p><p style="font-size:.78rem;margin-top:6px;color:var(--muted)">O espelho mostra as 3 últimas requisições do setor ${_esc(setorUsuario||'')} com barra de progresso em tempo real.</p></div>` + _renderFuncConcluidasHtml(minhasConcluidas);
     const badge = document.getElementById('badge-func-status');
     if (badge) badge.style.display = 'none';
     return;
@@ -2675,7 +2733,7 @@ function renderFuncReqStatus() {
     funcPrimeiraExibicao = false;
     if (prontos.length > 0) {
       setTimeout(() => {
-        const body = `🔔 <strong>${prontos.length}</strong> sua${prontos.length>1?'s':''} requisição${prontos.length>1?'ões':''} está${prontos.length>1?'o':''} <strong>PRONTA${prontos.length>1?'S':''} PARA RETIRAR!</strong><br>Dirija-se ao almoxarifado.`;
+        const body = `🔔 <strong>${prontos.length}</strong> requisição${prontos.length>1?'ões':''} do setor ${_esc(setorUsuario||'')} está${prontos.length>1?'o':''} <strong>PRONTA${prontos.length>1?'S':''} PARA RETIRAR/CONFERIR!</strong><br>Abra a conferência para liberar novas requisições.`;
         document.getElementById('notifBody').innerHTML = body;
         document.getElementById('notifOverlay').classList.add('show');
         try { navigator.vibrate && navigator.vibrate([300,100,300]); } catch(e) {}
@@ -2683,8 +2741,8 @@ function renderFuncReqStatus() {
     }
   }
 
-  // Header com badge "somente minhas"
-  const myBadge = `<div class="my-reqs-badge">👤 Exibindo somente as suas requisições em andamento (${minhasReqs.length})</div>`;
+  // Header com badge do espelho do setor
+  const myBadge = `<div class="my-reqs-badge">🏢 Espelho do setor ${_esc(setorUsuario||'')} — ${minhasReqs.length} requisição(ões) em andamento · visível a todos os operadores</div>`;
 
   area.innerHTML = myBadge + minhasReqs.map(([id, req]) => {
     const ts = normalizeTrackStatus(req.trackStatus || 'recebido');
@@ -2692,6 +2750,7 @@ function renderFuncReqStatus() {
     const pillClass = 'pill-'+ts;
     const pillTxt = (TRACK_ICONS[ts]||'📥') + ' ' + (TRACK_LABELS[ts]||ts);
     const totalItens = Object.keys(req.itens||{}).length + (req.extras||[]).length;
+    const isMinha = normalizarNome(req.requisitante)===normalizarNome(usuarioAtual);
 
     // Itens com status de baixa
     const itemMap={};
@@ -2717,7 +2776,7 @@ function renderFuncReqStatus() {
     return `<div class="func-sent-card s-${ts}">
       <div class="sent-hdr" onclick="toggleFuncSentCard('${id}')">
         <div>
-          <div style="font-weight:700;font-size:.92rem">📦 ${req.setor}</div>
+          <div style="font-weight:700;font-size:.92rem">📦 ${_esc(req.setor)} · 👤 ${_esc(req.requisitante||'—')}${isMinha?' <span style="color:#2e7d32;font-size:.72rem">(você)</span>':''}</div>
           <div style="font-size:.73rem;color:var(--muted)">📅 ${hora} · ${totalItens} item${totalItens!==1?'s':''}</div>
         </div>
         <span class="sent-status-pill ${pillClass}">${pillTxt}</span>
@@ -2726,7 +2785,11 @@ function renderFuncReqStatus() {
       <div class="sent-items-detail" id="fsentbody_${id}">
         ${detailHtml||'<p style="color:var(--muted);font-size:.82rem;padding:8px 0">Sem detalhe disponível.</p>'}
         <div style="margin-top:10px;padding-top:10px;border-top:1px solid #eee">
-          <button class="btn btn-primary" style="font-size:.78rem;padding:9px 14px" onclick="event.stopPropagation();fAddItemSentModal('${id}')">➕ Acrescentar item a este pedido</button>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            ${isMinha?`<button class="btn btn-primary" style="font-size:.78rem;padding:9px 14px" onclick="event.stopPropagation();fAddItemSentModal('${id}')">➕ Acrescentar item a este pedido</button>`:''}
+            <button class="btn btn-secondary" style="font-size:.78rem;padding:9px 14px" onclick="event.stopPropagation();gerarEspelhoRequisicao('${id}')">📄 Baixar Espelho</button>
+            ${(ts==='aguardando_retirada' && !(req.conferencia&&req.conferencia.concluida)) ? `<button class="btn btn-success" style="font-size:.78rem;padding:9px 14px" onclick="event.stopPropagation();abrirConferencia('${id}')">🔍 Conferir e Retirar</button>` : ''}
+          </div>
           <p style="font-size:.7rem;color:var(--muted);margin-top:6px">Você pode adicionar itens que esqueceu enquanto o pedido não for retirado — assim não precisa fazer um novo pedido.</p>
         </div>
       </div>
@@ -2739,13 +2802,19 @@ function _renderFuncConcluidasHtml(concluidas) {
   const itens = concluidas.map(([id, req]) => {
     const hora = req.timestamp ? new Date(req.timestamp).toLocaleString('pt-BR', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
     const totalItens = Object.keys(req.itens||{}).length + (req.extras||[]).length;
-    return `<div style="padding:9px 12px;border-bottom:1px solid #f0f0f0;font-size:.82rem;display:flex;justify-content:space-between;gap:8px">
-      <span>🏁 ${req.setor} · ${hora} · ${totalItens} item${totalItens!==1?'s':''}</span>
-      <span style="color:#2e7d32;font-weight:700">Retirado</span>
+    return `<div style="padding:9px 12px;border-bottom:1px solid #f0f0f0;font-size:.82rem">
+      <div style="display:flex;justify-content:space-between;gap:8px">
+        <span>🏁 ${req.setor} · ${hora} · ${totalItens} item${totalItens!==1?'s':''}</span>
+        <span style="color:#2e7d32;font-weight:700">Retirado${req.conferencia&&req.conferencia.concluida?' • Conferido':''}</span>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+        <button class="btn btn-secondary" style="font-size:.72rem;padding:6px 10px" onclick="gerarEspelhoRequisicao('${id}')">📄 Espelho</button>
+        ${req.conferencia&&req.conferencia.concluida?`<button class="btn btn-primary" style="font-size:.72rem;padding:6px 10px" onclick="gerarRelatorioConferencia('${id}')">📋 Relatório de Conferência</button>`:''}
+      </div>
     </div>`;
   }).join('');
   return `<div class="card" style="margin-top:14px">
-    <div class="card-header" style="cursor:pointer;background:linear-gradient(90deg,#2e7d32,#66bb6a)" onclick="const b=document.getElementById('funcConcluidasBody');if(b)b.style.display=b.style.display==='none'?'block':'none';">✓ Pedidos já retirados (${concluidas.length}) — toque para ver</div>
+    <div class="card-header" style="cursor:pointer;background:linear-gradient(90deg,#2e7d32,#66bb6a)" onclick="const b=document.getElementById('funcConcluidasBody');if(b)b.style.display=b.style.display==='none'?'block':'none';">✓ Pedidos já retirados neste setor (${concluidas.length}) — toque para ver</div>
     <div id="funcConcluidasBody" style="display:none">${itens}</div>
   </div>`;
 }
@@ -3378,6 +3447,75 @@ function renderRelatorios() {
     setoresEl.innerHTML = linhas || '<div class="empty" style="padding:16px"><p>Sem dados no período.</p></div>';
   }
 
+  // ---- 📅 RELATÓRIO ANUAL — MÊS A MÊS ----
+  const anualEl = document.getElementById('relAnualArea');
+  if (anualEl) {
+    const porMes = {};
+    reqs.forEach(([id, r]) => {
+      const ts = r.timestamp || 0; if (!ts) return;
+      const dt = new Date(ts);
+      const key = dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0');
+      if (!porMes[key]) porMes[key] = {reqs:0, unidades:0, atend:0, naoAtend:0, conferidas:0};
+      porMes[key].reqs++;
+      Object.entries(r.itens||{}).forEach(([k,q]) => { const qq=parseFloat(q)||0; if(qq>0){ porMes[key].unidades+=qq; const b=r.baixas?.[k]; if(b?.status==='atendido')porMes[key].atend++; else if(b?.status==='nao_atendido')porMes[key].naoAtend++; } });
+      (r.extras||[]).forEach((ex,i) => { const qq=parseFloat(ex.qty)||0; if(qq>0){ porMes[key].unidades+=qq; const b=r.baixas?.['extra_'+i]; if(b?.status==='atendido')porMes[key].atend++; else if(b?.status==='nao_atendido')porMes[key].naoAtend++; } });
+      if (r.conferencia && r.conferencia.concluida) porMes[key].conferidas++;
+    });
+    const mesesKeys = Object.keys(porMes).sort();
+    const nomeMes = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+    const thS = 'background:#1a237e;color:#fff;padding:7px;font-size:.78rem';
+    const tdS = 'padding:6px 7px;border-bottom:1px solid #eee;text-align:center';
+    anualEl.innerHTML = mesesKeys.length ? `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.84rem"><thead><tr>
+      <th style="${thS};text-align:left">Mês</th><th style="${thS}">Requisições</th><th style="${thS}">Unidades</th><th style="${thS}">Atendidos</th><th style="${thS}">Não atend.</th><th style="${thS}">Conferidas</th></tr></thead><tbody>
+      ${mesesKeys.map(k=>{const [y,m]=k.split('-');const v=porMes[k];return `<tr><td style="padding:6px 7px;border-bottom:1px solid #eee;font-weight:700">${nomeMes[parseInt(m)-1]}/${y}</td><td style="${tdS}">${v.reqs}</td><td style="${tdS}">${v.unidades.toLocaleString('pt-BR')}</td><td style="${tdS};color:#2e7d32;font-weight:700">${v.atend}</td><td style="${tdS};color:#c62828;font-weight:700">${v.naoAtend}</td><td style="${tdS};color:#1565c0;font-weight:700">${v.conferidas}</td></tr>`;}).join('')}
+      </tbody></table></div>` : '<div class="empty" style="padding:16px"><p>Sem dados no período.</p></div>';
+  }
+
+  // ---- 🔍 CONFERÊNCIAS — POR DIA / SETOR / PESSOA ----
+  const confEl = document.getElementById('relConferenciasArea');
+  if (confEl) {
+    const confs = Object.entries(reqsSnapshot).filter(([id, r]) => {
+      if (!(r.conferencia && r.conferencia.concluida)) return false;
+      if (setorFiltro && r.setor !== setorFiltro) return false;
+      const tsConf = r.conferencia.ts || r.timestamp || 0;
+      if (limiteTs && tsConf < limiteTs) return false;
+      return true;
+    }).map(([id, r]) => ({id, r, ts: (r.conferencia.ts || r.timestamp || 0)}))
+      .sort((a,b) => b.ts - a.ts);
+    if (!confs.length) {
+      confEl.innerHTML = '<div class="empty" style="padding:16px"><p>Nenhuma conferência concluída no período.</p></div>';
+    } else {
+      const porDia = {};
+      confs.forEach(c => {
+        const dia = new Date(c.ts).toLocaleDateString('pt-BR');
+        if (!porDia[dia]) porDia[dia] = {};
+        const setor = c.r.setor || '—';
+        if (!porDia[dia][setor]) porDia[dia][setor] = {};
+        const pessoa = (c.r.conferencia && c.r.conferencia.por) || '—';
+        if (!porDia[dia][setor][pessoa]) porDia[dia][setor][pessoa] = {qtd:0, atend:0, nao:0};
+        const g = porDia[dia][setor][pessoa];
+        g.qtd++;
+        g.atend += (c.r.conferencia.resumo && c.r.conferencia.resumo.atendidos) || 0;
+        g.nao += (c.r.conferencia.resumo && c.r.conferencia.resumo.naoAtendidos) || 0;
+      });
+      let htmlConf = `<p style="font-size:.78rem;color:var(--muted);margin-bottom:8px">${confs.length} conferência(s) no período — agrupadas por dia, setor e pessoa.</p>`;
+      Object.keys(porDia).forEach(dia => {
+        htmlConf += `<div style="font-weight:800;color:#1a237e;margin:12px 0 4px">📅 ${dia}</div>`;
+        Object.keys(porDia[dia]).forEach(setor => {
+          htmlConf += `<div style="font-weight:700;font-size:.85rem;margin:6px 0 2px">🏢 ${_esc(setor)}</div>`;
+          Object.keys(porDia[dia][setor]).forEach(pessoa => {
+            const g = porDia[dia][setor][pessoa];
+            htmlConf += `<div style="display:flex;justify-content:space-between;gap:8px;padding:6px 10px;border-bottom:1px solid #f0f0f0;font-size:.83rem;flex-wrap:wrap">
+              <span>👤 <b>${_esc(pessoa)}</b></span>
+              <span>${g.qtd} conferência(s) · <span style="color:#2e7d32;font-weight:700">${g.atend} atendidos</span> · <span style="color:#c62828;font-weight:700">${g.nao} não atendidos</span></span>
+            </div>`;
+          });
+        });
+      });
+      confEl.innerHTML = htmlConf;
+    }
+  }
+
   window._ultimoRelatorio = {periodoDias, setorFiltro, geradoEm: new Date()};
 }
 
@@ -3427,31 +3565,74 @@ function loadFuncSetor(setor) {
   document.getElementById('fReqActionBar').style.display = 'flex';
   document.getElementById('btnEnviarReq').style.display = 'flex';
   renderFuncReqItems(setor);
+  atualizarBloqueioRequisicao();
 }
 
 function renderFuncReqItems(setor) {
   const cats = DATA[setor] || [];
-  const s = localState.req[setor];
-  let html = '';
+  const s = localState.req[setor] || {itens:{},extras:[],unidades:{}};
+  let banners = '';
+  // 🔒 Banner de conferência obrigatória pendente
+  const pend = temConferenciaPendente();
+  if (pend.length) {
+    banners += `<div class="conf-banner" style="margin:0 0 12px">
+      <div class="conf-ic">🔍</div>
+      <div style="flex:1"><b>CONFERÊNCIA OBRIGATÓRIA DO SETOR</b><span>Este setor tem ${pend.length} requisição(ões) liberada(s) para retirada. Qualquer operador confere os itens atendidos e não atendidos para liberar novas requisições.</span></div>
+      <button onclick="abrirConferencia('${pend[0]}')">Conferir agora</button>
+    </div>`;
+  }
+  // ✅ Banner de espelho (requisição enviada, itens mantidos)
+  if (s.enviadaEm) {
+    const quando = new Date(s.enviadaEm).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+    banners += `<div class="sent-banner">✅ Requisição enviada em <b>${quando}</b>. Estes itens ficam aqui como espelho até você iniciar uma <b>Nova Requisição</b>.</div>`;
+  }
+  let cards = '';
   cats.forEach(cat => {
-    html += `<div class="card" style="margin-bottom:12px"><div class="cat-title">📦 ${cat.categoria}</div>`;
+    cards += `<div class="card" style="margin-bottom:12px"><div class="cat-title">📦 ${cat.categoria}</div>`;
     cat.itens.forEach(item => {
       const key = item.cod + '_' + item.nome.replace(/[^a-zA-Z0-9]/g,'');
       const qty = s.itens[key] || 0;
-      html += renderItemRow(key, item.cod, item.nome, qty, setor, false, -1);
+      cards += renderItemRow(key, item.cod, item.nome, qty, setor, false, -1);
     });
-    html += '</div>';
+    cards += '</div>';
   });
   if (s.extras?.length > 0) {
-    html += '<div class="card" style="margin-bottom:12px"><div class="cat-title">➕ ITENS ADICIONADOS</div>';
+    cards += '<div class="card" style="margin-bottom:12px"><div class="cat-title">➕ ITENS ADICIONADOS</div>';
     s.extras.forEach((ex, idx) => {
-      html += renderItemRow('extra_'+idx, ex.cod, ex.nome, ex.qty||0, setor, true, idx);
+      cards += renderItemRow('extra_'+idx, ex.cod, ex.nome, ex.qty||0, setor, true, idx);
     });
-    html += '</div>';
+    cards += '</div>';
   }
   const total = countFuncReqItems(setor);
-  html += `<div class="summary-count">Total de itens selecionados: <strong>${total}</strong></div>`;
-  document.getElementById('fReqItemsArea').innerHTML = html;
+  cards += `<div class="summary-count">Total de itens selecionados: <strong>${total}</strong></div>`;
+  document.getElementById('fReqItemsArea').innerHTML = banners + `<div id="fReqItemsCards">${cards}</div>`;
+  const cardsEl = document.getElementById('fReqItemsCards');
+  if (cardsEl) cardsEl.classList.toggle('req-locked', !!s.enviadaEm);
+}
+
+// Atualiza o estado do botão Enviar / Nova Requisição conforme envio e conferência
+function atualizarBloqueioRequisicao() {
+  const btnEnviar = document.getElementById('btnEnviarReq');
+  const btnNova = document.getElementById('btnNovaReq');
+  const setor = document.getElementById('fSetorSelect')?.value;
+  const s = setor ? (localState.req?.[setor]||null) : null;
+  const pend = temConferenciaPendente();
+  if (btnEnviar) {
+    if (pend.length) {
+      btnEnviar.disabled = true;
+      btnEnviar.textContent = '🔒 CONCLUA A CONFERÊNCIA PARA REQUISITAR NOVAMENTE';
+      btnEnviar.style.opacity = '.75';
+    } else if (s && s.enviadaEm) {
+      btnEnviar.disabled = true;
+      btnEnviar.textContent = '✅ REQUISIÇÃO ENVIADA — AGUARDANDO ELTON';
+      btnEnviar.style.opacity = '.75';
+    } else {
+      btnEnviar.disabled = false;
+      btnEnviar.textContent = '🚀 ENVIAR REQUISIÇÃO PARA ELTON';
+      btnEnviar.style.opacity = '1';
+    }
+  }
+  if (btnNova) btnNova.style.display = (s && s.enviadaEm) ? 'inline-flex' : 'none';
 }
 
 function getReqUn(key, setor) {
@@ -3576,7 +3757,26 @@ function fLimparRequisicao() {
   localState.req[setor] = {nome: localState.req[setor]?.nome||'', itens:{}, extras:[], unidades:{}};
   saveLocalState();
   renderFuncReqItems(setor);
+  atualizarBloqueioRequisicao();
   toast('🗑️ Requisição limpa');
+}
+
+// 🆕 Inicia uma nova requisição (limpa o espelho atual) — bloqueado se houver conferência pendente
+function fNovaRequisicao() {
+  const setor = document.getElementById('fSetorSelect')?.value; if (!setor) return;
+  const pend = temConferenciaPendente();
+  if (pend.length) {
+    toast('🔒 Conclua a conferência da requisição liberada antes de iniciar uma nova!', 4500, 'error');
+    verificarAlarmeRetirada();
+    abrirConferencia(pend[0]);
+    return;
+  }
+  if (!confirm('Iniciar uma NOVA requisição? O espelho atual será limpo.')) return;
+  localState.req[setor] = {nome: localState.req[setor]?.nome||usuarioAtual||'', itens:{}, extras:[], unidades:{}};
+  saveLocalState();
+  renderFuncReqItems(setor);
+  atualizarBloqueioRequisicao();
+  toast('🆕 Nova requisição iniciada!');
 }
 
 // ================================================================
@@ -4128,7 +4328,7 @@ function escutarProdutosExtra() {
 // ================================================================
 // SISTEMA DE VERSÃO / ATUALIZAÇÃO DO APP
 // ================================================================
-const APP_VERSAO_LOCAL = '3.1.0'; // devolução estoque + temas por setor + chat + force-update robusto
+const APP_VERSAO_LOCAL = '3.2.0'; // conferência por setor + espelho 3/48h + relatório anual + conferências master
 const URL_CORRETA = 'https://controladoriaamano-prog.github.io/requisicao-elton';
 let appVersaoAnterior = null;
 
@@ -4687,36 +4887,311 @@ function enviarMensagemChat(){
 }
 
 // ================================================================
-// 🔔 ALARME INSISTENTE ATÉ RETIRAR  (alteração 2)
+// 🔍 CONFERÊNCIA OBRIGATÓRIA DA REQUISIÇÃO (NOVO)
+// ================================================================
+function _reqItemMap(req){
+  const itemMap = {};
+  (DATA[req.setor]||[]).forEach(cat => cat.itens.forEach(item => {
+    itemMap[item.cod+'_'+item.nome.replace(/[^a-zA-Z0-9]/g,'')] = item;
+  }));
+  (req.extras||[]).forEach((ex,i) => { itemMap['extra_'+i] = {cod:ex.cod||'--', nome:ex.nome}; });
+  return itemMap;
+}
+function _reqAllItems(req){
+  const itemMap = _reqItemMap(req);
+  const arr = [];
+  Object.entries(req.itens||{}).forEach(([key,qty]) => {
+    if (parseFloat(qty) <= 0) return;
+    const it = itemMap[key] || {cod:'?', nome:key};
+    const b = req.baixas?.[key] || {status:'', motivo:''};
+    arr.push({key, cod:it.cod, nome:it.nome, qty, un:(req.unidades||{})[key]||'UN', status:b.status||'', motivo:b.motivo||'', extra:false});
+  });
+  (req.extras||[]).forEach((ex,i) => {
+    const key = 'extra_'+i;
+    const b = req.baixas?.[key] || {status:'', motivo:''};
+    arr.push({key, cod:ex.cod||'--', nome:ex.nome, qty:ex.qty||1, un:ex.un||'UN', status:b.status||'', motivo:b.motivo||'', extra:true});
+  });
+  return arr;
+}
+function _confResumo(req){
+  const itens = _reqAllItems(req);
+  const atendidos = itens.filter(i=>i.status==='atendido').length;
+  const nao = itens.filter(i=>i.status==='nao_atendido').length;
+  const pend = itens.filter(i=>i.status!=='atendido' && i.status!=='nao_atendido').length;
+  return {total:itens.length, atendidos, nao, pend, itens};
+}
+// Retorna os IDs de requisições liberadas para retirada e AINDA NÃO conferidas
+// 🔒 POR SETOR: independe do operador — qualquer operador do setor vê e conclui a conferência.
+// Enquanto não confirmar, o SETOR inteiro fica bloqueado para novas requisições.
+function temConferenciaPendente(){
+  if (isMaster || !usuarioAtual || !setorUsuario) return [];
+  return Object.entries(reqsSnapshot)
+    .filter(([id,r]) =>
+      r.setor===setorUsuario &&
+      normalizeTrackStatus(r.trackStatus||'recebido')==='aguardando_retirada' &&
+      !(r.conferencia && r.conferencia.concluida)
+    )
+    .sort((a,b) => (a[1].timestamp||0) - (b[1].timestamp||0))
+    .map(([id])=>id);
+}
+
+// ================================================================
+// 📋 ESPELHO DO SETOR — últimas 3 requisições (todos os operadores veem)
+// Retenção: a requisição NÃO é apagada no ato. Ela permanece no espelho
+// enquanto estiver entre as 3 mais recentes do setor OU tiver menos de 48h.
+// ================================================================
+const ESPELHO_MAX = 3;
+const ESPELHO_RETENCAO_H = 48;
+function _reqsEspelhoSetor(setor){
+  if (!setor) return [];
+  const todas = Object.entries(reqsSnapshot)
+    .filter(([,r]) => r.setor === setor)
+    .sort((a,b) => (b[1].timestamp||0) - (a[1].timestamp||0));
+  const agora = Date.now();
+  const limite48h = ESPELHO_RETENCAO_H * 3600 * 1000;
+  return todas.filter(([id,r], idx) =>
+    idx < ESPELHO_MAX ||
+    (agora - (r.timestamp||0)) < limite48h
+  );
+}
+let _confReqId = null;
+function abrirConferencia(reqId){
+  const req = reqsSnapshot[reqId];
+  if (!req) { toast('Requisição não encontrada'); return; }
+  _confReqId = reqId;
+  window._confChecked = {};
+  renderConferencia();
+  openModal('modalConferencia');
+}
+function renderConferencia(){
+  const reqId = _confReqId; const req = reqsSnapshot[reqId];
+  const box = document.getElementById('confBody'); if (!box || !req) return;
+  const r = _confResumo(req);
+  const jaConf = req.conferencia && req.conferencia.concluida;
+  let rows = r.itens.map(it => {
+    const cls = it.status==='atendido'?'conf-ok':it.status==='nao_atendido'?'conf-no':'conf-pend';
+    const lbl = it.status==='atendido'?'✓ ATENDIDO':it.status==='nao_atendido'?'✗ NÃO ATENDIDO':'⏳ PENDENTE';
+    const mot = it.status==='nao_atendido' ? `<div style="font-size:.74rem;color:#c62828;margin-top:3px">Motivo: <b>${_esc(it.motivo||'não informado')}</b></div>` : '';
+    const checked = window._confChecked[it.key] ? 'checked' : '';
+    return `<div class="conf-item">
+      <input type="checkbox" ${checked} onchange="confMarcar('${it.key}',this.checked)">
+      <div class="conf-name"><span class="item-cod">${_esc(it.cod)}</span> ${_esc(it.nome)}${it.extra?' <small style="color:#999">(extra)</small>':''}
+        <div style="font-size:.76rem;color:#666;margin-top:2px">Solicitado: <b>${it.qty} ${_esc(it.un)}</b></div>${mot}</div>
+      <span class="conf-st ${cls}">${lbl}</span>
+    </div>`;
+  }).join('');
+  const hora = req.timestamp ? new Date(req.timestamp).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
+  box.innerHTML = `
+    <div style="font-size:.82rem;color:var(--muted);margin-bottom:10px">📦 <b>${_esc(req.setor)}</b> — ${_esc(req.requisitante)} · 📅 ${hora}</div>
+    <div class="conf-resumo">
+      <div class="cr"><b>${r.total}</b><span>Itens</span></div>
+      <div class="cr"><b style="color:#2e7d32">${r.atendidos}</b><span>Atendidos</span></div>
+      <div class="cr"><b style="color:#c62828">${r.nao}</b><span>Não atendidos</span></div>
+      <div class="cr"><b style="color:#e65100">${r.pend}</b><span>Pendentes</span></div>
+    </div>
+    <div style="background:#fff8e1;border:1px solid #ffe0a3;border-radius:10px;padding:10px 12px;font-size:.8rem;color:#8a5a00;margin-bottom:10px">
+      🔍 Confira item por item o que foi <b>atendido</b> e o que <b>não foi</b> (com o motivo). Marque o <b>OK</b> em cada item para concluir.
+    </div>
+    <div id="confItems">${rows||'<div class="empty"><p>Sem itens</p></div>'}</div>
+    <label class="conf-check-all"><input type="checkbox" id="confCheckAll" onchange="confMarcarTudo(this.checked)"> Confirmo que conferi todos os itens desta requisição</label>
+    ${jaConf?`<div style="background:#e8f5e9;border-radius:10px;padding:10px;font-size:.8rem;color:#2e7d32;margin-bottom:10px">✅ Conferência já concluída por <b>${_esc(req.conferencia.por||'—')}</b> em ${req.conferencia.ts?new Date(req.conferencia.ts).toLocaleString('pt-BR'):'—'}.</div>`:''}
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+      <button class="btn btn-secondary" style="flex:1" onclick="gerarEspelhoRequisicao('${reqId}')">📄 Baixar Espelho</button>
+      ${jaConf?`<button class="btn btn-primary" style="flex:1" onclick="gerarRelatorioConferencia('${reqId}')">📄 Relatório de Conferência</button>`
+             :`<button class="btn btn-success" style="flex:1" id="btnConcluirConf" onclick="concluirConferencia()">✅ Concluir Conferência e Retirar</button>`}
+    </div>
+    <p style="font-size:.72rem;color:var(--muted);margin-top:8px;text-align:center">Ao concluir, um relatório de conferência é gerado para o Elton e a tela é liberada para novas requisições.</p>
+  `;
+  _atualizarBtnConcluir();
+}
+function confMarcar(key, val){ window._confChecked[key]=val; _atualizarBtnConcluir(); }
+function confMarcarTudo(val){
+  const req = reqsSnapshot[_confReqId]; if(!req) return;
+  _reqAllItems(req).forEach(it => { window._confChecked[it.key]=val; });
+  document.querySelectorAll('#confItems input[type=checkbox]').forEach(c=>c.checked=val);
+  _atualizarBtnConcluir();
+}
+function _atualizarBtnConcluir(){
+  const btn = document.getElementById('btnConcluirConf'); if(!btn) return;
+  const req = reqsSnapshot[_confReqId]; if(!req) return;
+  const itens = _reqAllItems(req);
+  const ok = itens.length>0 && itens.every(it => window._confChecked[it.key]);
+  btn.disabled = !ok;
+  btn.style.opacity = ok ? '1' : '.55';
+  const all = document.getElementById('confCheckAll');
+  if (all) all.checked = ok;
+}
+function fecharConferencia(){ closeModal('modalConferencia'); }
+function concluirConferencia(){
+  const reqId = _confReqId; const req = reqsSnapshot[reqId];
+  if (!req) return;
+  const itens = _reqAllItems(req);
+  if (!itens.length || !itens.every(it => window._confChecked[it.key])) {
+    toast('⚠️ Marque o OK em todos os itens antes de concluir'); return;
+  }
+  const r = _confResumo(req);
+  const conf = {
+    concluida: true,
+    por: usuarioAtual,
+    ts: Date.now(),
+    setor: req.setor,
+    requisitante: req.requisitante,
+    data: req.data||'',
+    hora: req.hora||'',
+    itens: itens.reduce((a,it)=>{ a[it.key]={ok:true,status:it.status||'pendente',motivo:it.motivo||''}; return a; },{}),
+    resumo: {total:r.total, atendidos:r.atendidos, naoAtendidos:r.nao, pendentes:r.pend}
+  };
+  const novHist = [...(req.trackHistory||[]), {status:'retirado', ts:Date.now(), por:usuarioAtual, conferido:true}];
+  const updates = {};
+  updates[`requisicoes/${reqId}/conferencia`] = conf;
+  updates[`requisicoes/${reqId}/trackStatus`] = 'retirado';
+  updates[`requisicoes/${reqId}/trackHistory`] = novHist;
+  const finalizar = () => {
+    reqsSnapshot[reqId] = Object.assign({}, reqsSnapshot[reqId], {conferencia:conf, trackStatus:'retirado', trackHistory:novHist});
+    try { cacheSnap('reqs', reqsSnapshot); } catch(e) {}
+    fecharConferencia();
+    pararAlarmeRetirada();
+    renderFuncReqStatus();
+    atualizarBloqueioRequisicao();
+    gerarRelatorioConferencia(reqId);
+    toast('✅ Conferência concluída! Relatório gerado. Você já pode fazer uma nova requisição.', 5000, 'success');
+  };
+  if (db && !podeEnviar()) {
+    enfileirarOperacao(`requisicoes/${reqId}/conferencia`, conf, {}, 'set');
+    enfileirarOperacao(`requisicoes/${reqId}/trackStatus`, 'retirado', {}, 'set');
+    enfileirarOperacao(`requisicoes/${reqId}/trackHistory`, novHist, {}, 'set');
+    finalizar();
+  } else if (db) {
+    db.ref().update(updates).then(finalizar).catch(err => toast('❌ Erro ao salvar conferência: '+err.message, 4000, 'error'));
+  } else {
+    finalizar();
+  }
+}
+
+// ================================================================
+// 📄 ESPELHO DA REQUISIÇÃO + RELATÓRIO DE CONFERÊNCIA
+// ================================================================
+function gerarEspelhoRequisicao(reqId){
+  const req = reqsSnapshot[reqId]; if(!req){ toast('Requisição não encontrada'); return; }
+  const itens = _reqAllItems(req);
+  const r = _confResumo(req);
+  const d = req.timestamp ? new Date(req.timestamp).toLocaleDateString('pt-BR') : (req.data||'—');
+  const h = req.timestamp ? new Date(req.timestamp).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) : (req.hora||'');
+  const st = normalizeTrackStatus(req.trackStatus||'recebido');
+  let rows = itens.map(it => {
+    const stTxt = it.status==='atendido'?'✓ Atendido':it.status==='nao_atendido'?'✗ Não atendido':'⏳ Pendente';
+    const cor = it.status==='atendido'?'#2e7d32':it.status==='nao_atendido'?'#c62828':'#e65100';
+    return `<tr><td>${it.cod}</td><td>${it.nome}${it.extra?' <small>(extra)</small>':''}</td><td style="text-align:center;font-weight:700">${it.qty}</td><td style="text-align:center">${it.un}</td><td style="color:${cor};font-weight:700">${stTxt}${it.status==='nao_atendido'&&it.motivo?' — '+it.motivo:''}</td></tr>`;
+  }).join('');
+  const confInfo = (req.conferencia && req.conferencia.concluida) ? `<p style="font-size:.8rem;background:#e8f5e9;padding:8px 10px;border-radius:8px;color:#2e7d32"><b>Conferida por:</b> ${req.conferencia.por||'—'} em ${req.conferencia.ts?new Date(req.conferencia.ts).toLocaleString('pt-BR'):'—'}</p>` : '';
+  const w = window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Espelho Requisição ${req.setor}</title><style>body{font-family:Arial,sans-serif;padding:20px;color:#212121}h2{color:#1a237e;border-bottom:3px solid #1a237e;padding-bottom:8px}.info{font-size:.85rem;margin:10px 0}.resumo{display:flex;gap:8px;margin:12px 0;flex-wrap:wrap}.resumo div{background:#e8eaf6;border-radius:8px;padding:8px 16px;text-align:center}.resumo b{display:block;font-size:1.4rem;color:#1a237e}.resumo span{font-size:.7rem;color:#666}table{width:100%;border-collapse:collapse;margin-top:14px}th{background:#1a237e;color:#fff;padding:9px;text-align:left;font-size:.82rem}td{padding:8px 10px;border-bottom:1px solid #e0e0e0;font-size:.82rem}tr:nth-child(even){background:#f5f5f5}.footer{margin-top:28px;border-top:1px solid #ccc;padding-top:10px;font-size:.75rem;color:#666}</style></head><body>
+  <h2>🧾 ESPELHO DA REQUISIÇÃO — ${req.setor}</h2>
+  <div class="info"><b>Requisitante:</b> ${req.requisitante||'—'} &nbsp;|&nbsp; <b>Data:</b> ${d} &nbsp;|&nbsp; <b>Hora:</b> ${h} &nbsp;|&nbsp; <b>Situação:</b> ${TRACK_LABELS[st]||st}</div>
+  ${confInfo}
+  <div class="resumo">
+    <div><b>${r.total}</b><span>Itens</span></div>
+    <div><b style="color:#2e7d32">${r.atendidos}</b><span>Atendidos</span></div>
+    <div><b style="color:#c62828">${r.nao}</b><span>Não atendidos</span></div>
+    <div><b style="color:#e65100">${r.pend}</b><span>Pendentes</span></div>
+  </div>
+  <table><thead><tr><th>Cód</th><th>Item</th><th>Qtd</th><th>Un</th><th>Status</th></tr></thead><tbody>${rows||'<tr><td colspan="5">Sem itens</td></tr>'}</tbody></table>
+  <div class="footer">Espelho gerado em ${new Date().toLocaleString('pt-BR')} — REQUISIÇÃO ELTON</div>
+  <script>window.onload=()=>window.print()<\/script></body></html>`);
+  w.document.close();
+}
+
+function gerarRelatorioConferencia(reqId){
+  const req = reqsSnapshot[reqId]; if(!req){ toast('Requisição não encontrada'); return; }
+  const itens = _reqAllItems(req);
+  const r = _confResumo(req);
+  const conf = req.conferencia || {};
+  const d = req.timestamp ? new Date(req.timestamp).toLocaleDateString('pt-BR') : (req.data||'—');
+  const h = req.timestamp ? new Date(req.timestamp).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) : (req.hora||'');
+  const confQuando = conf.ts ? new Date(conf.ts).toLocaleString('pt-BR') : new Date().toLocaleString('pt-BR');
+  const divergencias = itens.filter(i=>i.status!=='atendido');
+  let rows = itens.map(it => {
+    const stTxt = it.status==='atendido'?'✓ Atendido':it.status==='nao_atendido'?'✗ Não atendido':'⏳ Pendente';
+    const cor = it.status==='atendido'?'#2e7d32':it.status==='nao_atendido'?'#c62828':'#e65100';
+    return `<tr><td>${it.cod}</td><td>${it.nome}${it.extra?' <small>(extra)</small>':''}</td><td style="text-align:center;font-weight:700">${it.qty}</td><td style="text-align:center">${it.un}</td><td style="color:${cor};font-weight:700">${stTxt}</td><td>${it.status==='nao_atendido'?(it.motivo||'—'):'—'}</td></tr>`;
+  }).join('');
+  let divRows = divergencias.length ? divergencias.map(it=>`<li><b>${it.nome}</b> — ${it.status==='nao_atendido'?'NÃO ATENDIDO':'PENDENTE'}${it.motivo?': '+it.motivo:''}</li>`).join('') : '<li>Nenhuma divergência — todos os itens atendidos.</li>';
+  const w = window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Relatório de Conferência ${req.setor}</title><style>body{font-family:Arial,sans-serif;padding:20px;color:#212121}h2{color:#1a237e;border-bottom:3px solid #1a237e;padding-bottom:8px}.info{font-size:.85rem;margin:10px 0}.resumo{display:flex;gap:8px;margin:12px 0;flex-wrap:wrap}.resumo div{background:#e8eaf6;border-radius:8px;padding:8px 16px;text-align:center}.resumo b{display:block;font-size:1.4rem;color:#1a237e}.resumo span{font-size:.7rem;color:#666}table{width:100%;border-collapse:collapse;margin-top:14px}th{background:#1a237e;color:#fff;padding:9px;text-align:left;font-size:.82rem}td{padding:8px 10px;border-bottom:1px solid #e0e0e0;font-size:.82rem}tr:nth-child(even){background:#f5f5f5}ul{margin:10px 0 0 18px;font-size:.85rem;line-height:1.7}.ass{margin-top:44px;display:flex;gap:40px}.ass div{flex:1;border-top:1px solid #999;padding-top:6px;font-size:.78rem;text-align:center}.footer{margin-top:24px;font-size:.72rem;color:#666}</style></head><body>
+  <h2>📋 RELATÓRIO DE CONFERÊNCIA — ${req.setor}</h2>
+  <div class="info"><b>Requisitante:</b> ${req.requisitante||'—'} &nbsp;|&nbsp; <b>Requisição:</b> ${d} ${h}<br><b>Conferido por:</b> ${conf.por||'—'} &nbsp;|&nbsp; <b>Conferência em:</b> ${confQuando}</div>
+  <div class="resumo">
+    <div><b>${r.total}</b><span>Itens</span></div>
+    <div><b style="color:#2e7d32">${r.atendidos}</b><span>Atendidos</span></div>
+    <div><b style="color:#c62828">${r.nao}</b><span>Não atendidos</span></div>
+    <div><b style="color:#e65100">${r.pend}</b><span>Pendentes</span></div>
+  </div>
+  <table><thead><tr><th>Cód</th><th>Item</th><th>Qtd</th><th>Un</th><th>Status</th><th>Motivo (não atendido)</th></tr></thead><tbody>${rows||'<tr><td colspan="6">Sem itens</td></tr>'}</tbody></table>
+  <h3 style="margin-top:20px;color:#c62828">⚠️ Divergências / Não atendidos</h3>
+  <ul>${divRows}</ul>
+  <div class="ass"><div>Assinatura do requisitante</div><div>Conferido pelo Estoque</div></div>
+  <div class="footer">Relatório gerado em ${new Date().toLocaleString('pt-BR')} — REQUISIÇÃO ELTON</div>
+  <script>window.onload=()=>window.print()<\/script></body></html>`);
+  w.document.close();
+}
+
+// ================================================================
+// 🔔 ALARME INSISTENTE DE CONFERÊNCIA (persistente até concluir)
 // ================================================================
 let _alarmeTimer = null;
 let _prontosIds = [];
+let _confNotifEnviada = {};
+let _confAutoAberto = {};
 function verificarAlarmeRetirada(){
   if(isMaster || !usuarioAtual){ pararAlarmeRetirada(); return; }
-  const prontos = Object.entries(reqsSnapshot).filter(([id,r])=>
-    r.setor===setorUsuario &&
-    normalizarNome(r.requisitante)===normalizarNome(usuarioAtual) &&
-    normalizeTrackStatus(r.trackStatus||'recebido')==='aguardando_retirada'
-  );
-  _prontosIds = prontos.map(([id])=>id);
-  if(prontos.length) iniciarAlarmeRetirada(); else pararAlarmeRetirada();
+  _prontosIds = temConferenciaPendente();
+  atualizarBloqueioRequisicao();
+  if(_prontosIds.length) iniciarAlarmeRetirada(); else pararAlarmeRetirada();
+  // 🔒 TELA AUTOMÁTICA E PERSISTENTE: abre sozinha quando o SETOR tem conferência pendente
+  const idPend = _prontosIds[0];
+  if(idPend && !_confAutoAberto[idPend]){
+    _confAutoAberto[idPend] = true;
+    const m = document.getElementById('modalConferencia');
+    if(!(m && m.classList.contains('open'))) setTimeout(()=>{ if(_prontosIds.includes(idPend)) abrirConferencia(idPend); }, 500);
+  }
+}
+function _notificarDispositivoConferencia(){
+  try{
+    if(!('Notification' in window)) return;
+    if(Notification.permission === 'granted'){
+      _prontosIds.forEach(id=>{
+        if(_confNotifEnviada[id]) return;
+        _confNotifEnviada[id]=true;
+        const req = reqsSnapshot[id]||{};
+        const n = new Notification('🔍 Conferência obrigatória — Requisição Elton', {
+          body: `Confira a requisição do setor ${req.setor||''} (${req.requisitante||''}) para liberar novas requisições.`,
+          icon: 'icons/icon-192.png', tag: 'conf-'+id, requireInteraction: true, renotify: true
+        });
+        n.onclick = ()=>{ try{ window.focus(); }catch(e){} abrirConferencia(id); n.close(); };
+      });
+    } else if(Notification.permission !== 'denied'){
+      Notification.requestPermission();
+    }
+  }catch(e){}
 }
 function iniciarAlarmeRetirada(){
   const b=document.getElementById('retiradaAlerta'); if(!b) return;
   b.classList.add('show','pulsando');
-  b.innerHTML=`<div class="retirada-emoji">🔔</div>
+  b.innerHTML=`<div class="retirada-emoji">🔍</div>
     <div style="flex:1">
-      <div style="font-weight:900;font-size:.98rem">PRONTO PARA RETIRAR!</div>
-      <div style="font-size:.76rem;opacity:.95">${_prontosIds.length} pedido(s) aguardando retirada no almoxarifado.</div>
+      <div style="font-weight:900;font-size:.98rem">CONFERÊNCIA OBRIGATÓRIA!</div>
+      <div style="font-size:.76rem;opacity:.95">${_prontosIds.length} pedido(s) liberado(s) para retirada. Confira os itens atendidos e não atendidos para liberar novas requisições.</div>
     </div>
-    <button onclick="confirmarRetiradaPropria()" style="background:#fff;color:#c62828;border:none;border-radius:10px;padding:10px 12px;font-weight:800;font-size:.78rem;cursor:pointer;white-space:nowrap">✅ Já retirei</button>`;
+    <button onclick="abrirConferencia('${_prontosIds[0]}')" style="background:#fff;color:#c62828;border:none;border-radius:10px;padding:10px 12px;font-weight:800;font-size:.78rem;cursor:pointer;white-space:nowrap">🔍 Conferir</button>`;
+  _notificarDispositivoConferencia();
   if(_alarmeTimer) return;
   _alarmeTimer=setInterval(()=>{
     if(!_prontosIds.length){ pararAlarmeRetirada(); return; }
     tocarSom('urgente');
     try{ navigator.vibrate && navigator.vibrate([300,120,300,120,600]); }catch(e){}
     const b2=document.getElementById('retiradaAlerta'); if(b2) b2.classList.add('pulsando');
-  }, 20000);
+    _notificarDispositivoConferencia();
+  }, 15000);
 }
 function pararAlarmeRetirada(){
   const b=document.getElementById('retiradaAlerta');
@@ -4725,13 +5200,9 @@ function pararAlarmeRetirada(){
   _prontosIds=[];
 }
 function confirmarRetiradaPropria(){
-  if(!_prontosIds.length) return;
-  if(!confirm('Confirmar que você já retirou este pedido?')) return;
-  if(db){
-    _prontosIds.forEach(id=>{ db.ref('requisicoes/'+id+'/trackStatus').set('retirado').catch(()=>{}); });
-  }
-  pararAlarmeRetirada();
-  toast('✅ Retirada confirmada!',3000,'success');
+  const pend = temConferenciaPendente();
+  if(!pend.length) return;
+  abrirConferencia(pend[0]);
 }
 
 // ================================================================
