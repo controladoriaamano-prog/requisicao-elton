@@ -723,6 +723,11 @@ body.tem-setor .req-card{border-left-color:var(--setor-cor,#1a237e)!important}
     </div>
 
     <div class="card">
+      <div class="card-header" style="background:linear-gradient(90deg,#283593,#5c6bc0)">🔍 RELATÓRIO DE CONFERÊNCIAS — POR DIA / SETOR / PESSOA</div>
+      <div class="modal-body" id="relConferenciasArea"><p>Carregando...</p></div>
+    </div>
+
+    <div class="card">
       <div class="card-header">📈 RESUMO GERAL DO PERÍODO</div>
       <div class="modal-body" id="relResumoArea" style="font-size:.88rem;line-height:1.9"><p>Carregando...</p></div>
     </div>
@@ -765,11 +770,6 @@ body.tem-setor .req-card{border-left-color:var(--setor-cor,#1a237e)!important}
     <div class="card">
       <div class="card-header" style="background:linear-gradient(90deg,#00838f,#26c6da)">📅 RELATÓRIO ANUAL — MÊS A MÊS</div>
       <div class="modal-body" id="relAnualArea"><p>Carregando...</p></div>
-    </div>
-
-    <div class="card">
-      <div class="card-header" style="background:linear-gradient(90deg,#283593,#5c6bc0)">🔍 CONFERÊNCIAS — POR DIA / SETOR / PESSOA</div>
-      <div class="modal-body" id="relConferenciasArea"><p>Carregando...</p></div>
     </div>
 
     <div class="action-bar no-print">
@@ -1372,7 +1372,7 @@ function entrar(nome, setor) {
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('appHeader').style.display = 'flex';
   document.getElementById('nomeUsuarioHeader').textContent = nome + (isMaster ? ' 👑' : '');
-  document.getElementById('headerSub').textContent = isMaster ? '🎯 Painel Master — Todas as Requisições' : `🏢 Setor: ${setor}`;
+  document.getElementById('headerSub').textContent = isMaster ? ('🎯 Painel Master — Todas as Requisições · v'+APP_VERSAO_LOCAL) : `🏢 Setor: ${setor} · v${APP_VERSAO_LOCAL}`;
 
   if (isMaster) {
     document.getElementById('navTabsMaster').style.display = 'flex';
@@ -3483,7 +3483,7 @@ function renderRelatorios() {
     }).map(([id, r]) => ({id, r, ts: (r.conferencia.ts || r.timestamp || 0)}))
       .sort((a,b) => b.ts - a.ts);
     if (!confs.length) {
-      confEl.innerHTML = '<div class="empty" style="padding:16px"><p>Nenhuma conferência concluída no período.</p></div>';
+      confEl.innerHTML = '<div class="empty" style="padding:16px"><p>Nenhuma conferência concluída no período.</p><p style="font-size:.78rem;color:var(--muted);margin-top:6px">As conferências aparecem aqui assim que um operador concluir a conferência de uma requisição liberada para retirada (status "aguardando retirada").</p></div>';
     } else {
       const porDia = {};
       confs.forEach(c => {
@@ -4328,7 +4328,7 @@ function escutarProdutosExtra() {
 // ================================================================
 // SISTEMA DE VERSÃO / ATUALIZAÇÃO DO APP
 // ================================================================
-const APP_VERSAO_LOCAL = '3.2.0'; // conferência por setor + espelho 3/48h + relatório anual + conferências master
+const APP_VERSAO_LOCAL = '3.3.0'; // conferência por setor + espelho 3/48h + relatório anual + relatório de conferências em destaque
 const URL_CORRETA = 'https://controladoriaamano-prog.github.io/requisicao-elton';
 let appVersaoAnterior = null;
 
