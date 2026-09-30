@@ -269,6 +269,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .track-label.done{color:#2e7d32}
 .track-connector{flex:1;height:3px;background:var(--border);min-width:10px;align-self:center;margin-bottom:20px;transition:background .25s}
 .track-connector.done{background:#2e7d32}
+.track-bar.concluido .track-connector.done{background:#1565c0}
+.track-bar.concluido .track-dot.done{background:#1565c0;border-color:#1565c0}
 /* FUNC: seus envios com status */
 .func-sent-card{background:#fff;border-radius:12px;box-shadow:var(--shadow);margin-bottom:12px;overflow:hidden;border-left:4px solid #9e9e9e}
 .func-sent-card.s-recebido{border-left-color:#9e9e9e}
@@ -323,6 +325,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .req-progress-fill.step-finalizado{background:linear-gradient(90deg,#e65100,#ff8f00)}
 .req-progress-fill.step-aguardando_retirada{background:linear-gradient(90deg,#c62828,#ef5350);animation:pulse-fill 1.4s ease-in-out infinite}
 .req-progress-fill.step-retirado{background:linear-gradient(90deg,#2e7d32,#66bb6a)}
+.req-progress-fill.step-conferido{background:linear-gradient(90deg,#1565c0,#42a5f5)}
+.rpsd-circle.done.conferido,.req-progress-fill.step-conferido ~ *{}
 @keyframes pulse-fill{0%,100%{opacity:1}50%{opacity:.7}}
 .req-progress-steps{display:flex;justify-content:space-between;padding-bottom:6px}
 .req-prog-step-dot{display:flex;flex-direction:column;align-items:center;flex:1;position:relative}
@@ -2582,7 +2586,7 @@ function normalizeTrackStatus(ts) {
 function renderTrackBar(id, curStatus, isMasterView) {
   const norm = normalizeTrackStatus(curStatus);
   const curIdx = TRACK_STEPS.indexOf(norm);
-  let html = '<div class="track-bar">';
+  let html = '<div class="track-bar'+(norm==='conferido'?' concluido':'')+'">';
   TRACK_STEPS.forEach((step, i) => {
     const done = i < curIdx;
     const current = i === curIdx;
@@ -4344,7 +4348,7 @@ function escutarProdutosExtra() {
 // ================================================================
 // SISTEMA DE VERSÃO / ATUALIZAÇÃO DO APP
 // ================================================================
-const APP_VERSAO_LOCAL = '3.4.1'; // conferencia obrigatoria apenas para retiradas novas (flag conferenciaPendente) + CONFERIDO no rastreamento
+const APP_VERSAO_LOCAL = '3.5.0'; // barra de progresso ate o fim + azul ao CONFERIR; antigas marcadas como conferido
 const URL_CORRETA = 'https://controladoriaamano-prog.github.io/requisicao-elton';
 let appVersaoAnterior = null;
 
