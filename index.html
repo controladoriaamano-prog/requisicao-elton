@@ -2606,12 +2606,17 @@ function updateTrackStatus(reqId, novoStatus) {
   const updates = {};
   updates[`requisicoes/${reqId}/trackStatus`] = novoStatus;
   updates[`requisicoes/${reqId}/trackHistory`] = novHist;
+  // 🔍 Ao marcar RETIRADO (ou aguardando retirada), passa a exigir a CONFERÊNCIA do setor
+  const exigeConf = (novoStatus === 'aguardando_retirada' || novoStatus === 'retirado');
+  if (exigeConf) updates[`requisicoes/${reqId}/conferenciaPendente`] = true;
   if (db && !podeEnviar()) {
     reqsSnapshot[reqId].trackStatus = novoStatus;
     reqsSnapshot[reqId].trackHistory = novHist;
+    if (exigeConf) reqsSnapshot[reqId].conferenciaPendente = true;
     try { cacheSnap('reqs', reqsSnapshot); } catch(e) {}
     enfileirarOperacao(`requisicoes/${reqId}/trackStatus`, novoStatus, {}, 'set');
     enfileirarOperacao(`requisicoes/${reqId}/trackHistory`, novHist, {}, 'set');
+    if (exigeConf) enfileirarOperacao(`requisicoes/${reqId}/conferenciaPendente`, true, {}, 'set');
     renderMasterReqs();
     toast('📴 Status guardado offline: ' + (TRACK_LABELS[novoStatus]||novoStatus), 3000, 'info');
     return;
@@ -2621,6 +2626,7 @@ function updateTrackStatus(reqId, novoStatus) {
   } else {
     reqsSnapshot[reqId].trackStatus = novoStatus;
     reqsSnapshot[reqId].trackHistory = novHist;
+    if (exigeConf) reqsSnapshot[reqId].conferenciaPendente = true;
     salvarLocalState();
     renderMasterReqs();
     toast('✅ Status: ' + (TRACK_LABELS[novoStatus]||novoStatus) + '!', 2500, 'success');
@@ -4338,7 +4344,7 @@ function escutarProdutosExtra() {
 // ================================================================
 // SISTEMA DE VERSÃO / ATUALIZAÇÃO DO APP
 // ================================================================
-const APP_VERSAO_LOCAL = '3.4.0'; // conferencia por setor + CONFERIDO no rastreamento + qtd conferida + relatorio anual/conferencias
+const APP_VERSAO_LOCAL = '3.4.1'; // conferencia obrigatoria apenas para retiradas novas (flag conferenciaPendente) + CONFERIDO no rastreamento
 const URL_CORRETA = 'https://controladoriaamano-prog.github.io/requisicao-elton';
 let appVersaoAnterior = null;
 
@@ -4938,7 +4944,7 @@ function temConferenciaPendente(){
   return Object.entries(reqsSnapshot)
     .filter(([id,r]) =>
       r.setor===setorUsuario &&
-      ['aguardando_retirada','retirado'].includes(normalizeTrackStatus(r.trackStatus||'recebido')) &&
+      r.conferenciaPendente === true &&
       !(r.conferencia && r.conferencia.concluida)
     )
     .sort((a,b) => (a[1].timestamp||0) - (b[1].timestamp||0))
@@ -5065,8 +5071,9 @@ function concluirConferencia(){
   updates[`requisicoes/${reqId}/conferencia`] = conf;
   updates[`requisicoes/${reqId}/trackStatus`] = 'conferido';
   updates[`requisicoes/${reqId}/trackHistory`] = novHist;
+  updates[`requisicoes/${reqId}/conferenciaPendente`] = false;
   const finalizar = () => {
-    reqsSnapshot[reqId] = Object.assign({}, reqsSnapshot[reqId], {conferencia:conf, trackStatus:'conferido', trackHistory:novHist});
+    reqsSnapshot[reqId] = Object.assign({}, reqsSnapshot[reqId], {conferencia:conf, trackStatus:'conferido', trackHistory:novHist, conferenciaPendente:false});
     try { cacheSnap('reqs', reqsSnapshot); } catch(e) {}
     fecharConferencia();
     pararAlarmeRetirada();
@@ -5079,6 +5086,7 @@ function concluirConferencia(){
     enfileirarOperacao(`requisicoes/${reqId}/conferencia`, conf, {}, 'set');
     enfileirarOperacao(`requisicoes/${reqId}/trackStatus`, 'conferido', {}, 'set');
     enfileirarOperacao(`requisicoes/${reqId}/trackHistory`, novHist, {}, 'set');
+    enfileirarOperacao(`requisicoes/${reqId}/conferenciaPendente`, false, {}, 'set');
     finalizar();
   } else if (db) {
     db.ref().update(updates).then(finalizar).catch(err => toast('❌ Erro ao salvar conferência: '+err.message, 4000, 'error'));
