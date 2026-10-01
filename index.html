@@ -803,6 +803,15 @@ body.tem-setor .req-card{border-left-color:var(--setor-cor,#1a237e)!important}
       <p style="font-size:.72rem;color:var(--muted);margin-top:6px;line-height:1.4">Envia um aviso especial. Quando o operador abrir a notificação, o app atualiza e redireciona automaticamente — sem precisar fazer nada.</p>
     </div>
   </div>
+  <div class="card" style="border:2px solid #c62828">
+    <div class="card-header" style="background:linear-gradient(135deg,#c62828,#b71c1c);color:#fff">🔒 BLOQUEIO GERAL DE REQUISIÇÕES</div>
+    <div class="modal-body">
+      <p style="font-size:.86rem;line-height:1.6;margin-bottom:10px">Ative para <strong>bloquear temporariamente TODOS os operadores</strong>. Ninguém conseguirá fazer requisição até você desbloquear. Use durante a <strong>contagem de inventário</strong>.</p>
+      <div id="bloqueioCfgStatus" style="font-size:.95rem;margin-bottom:12px">Carregando...</div>
+      <button id="bloqueioCfgBtn" class="btn btn-block" style="background:#c62828;color:#fff;font-weight:800" onclick="toggleBloqueioGeral()">🔒 BLOQUEAR REQUISIÇÕES AGORA</button>
+      <p style="font-size:.72rem;color:var(--muted);margin-top:8px;line-height:1.4">O bloqueio é aplicado na hora em todos os aparelhos. O operador verá a mensagem “REQUISIÇÃO BLOQUEADA TEMPORARIAMENTE PARA CONTAGEM INVENTÁRIO” ao abrir o app.</p>
+    </div>
+  </div>
   <div class="card">
     <div class="card-header">📊 ESTATÍSTICAS</div>
     <div class="modal-body" id="statsArea" style="font-size:.88rem;line-height:2">
@@ -1431,6 +1440,7 @@ function entrar(nome, setor) {
     localStorage.setItem('reqElton_usuarios', JSON.stringify(lista));
   } catch(e) {}
 
+  renderBloqueioGeral(window._bloqueioGeral);
   updateClock();
   toast(`👋 Bem-vindo${isMaster ? ', Elton! 👑' : ', ' + nome + '!'}`, 2500);
 }
@@ -1456,6 +1466,7 @@ function logout() {
   document.getElementById('setorLoginArea').style.display = 'none';
   document.getElementById('masterSenhaArea').style.display = 'none';
   document.getElementById('loginMasterSenha').value = '';
+  renderBloqueioGeral(window._bloqueioGeral);
   carregarRecentes();
 }
 
@@ -2408,6 +2419,13 @@ function limparTodasRequisicoes() {
 function enviarRequisicao() {
   const setor = document.getElementById('fSetorSelect').value;
   if (!setor) { toast('⚠️ Selecione o setor'); return; }
+
+  // 🔒 BLOQUEIO GERAL (contagem / inventário) — master controla
+  if (window._bloqueioGeral && window._bloqueioGeral.ativo && !isMaster) {
+    toast('🔒 REQUISIÇÃO BLOQUEADA TEMPORARIAMENTE PARA CONTAGEM INVENTÁRIO', 6000, 'error');
+    renderBloqueioGeral(window._bloqueioGeral);
+    return;
+  }
 
   // 🔒 CONFERÊNCIA OBRIGATÓRIA: não deixa pedir de novo antes de conferir a requisição liberada
   const pend = temConferenciaPendente();
@@ -3642,7 +3660,11 @@ function atualizarBloqueioRequisicao() {
   const s = setor ? (localState.req?.[setor]||null) : null;
   const pend = temConferenciaPendente();
   if (btnEnviar) {
-    if (pend.length) {
+    if (window._bloqueioGeral && window._bloqueioGeral.ativo && !isMaster) {
+      btnEnviar.disabled = true;
+      btnEnviar.textContent = '🔒 REQUISIÇÃO BLOQUEADA TEMPORARIAMENTE (INVENTÁRIO)';
+      btnEnviar.style.opacity = '.75';
+    } else if (pend.length) {
       btnEnviar.disabled = true;
       btnEnviar.textContent = '🔒 CONCLUA A CONFERÊNCIA PARA REQUISITAR NOVAMENTE';
       btnEnviar.style.opacity = '.75';
@@ -4352,7 +4374,7 @@ function escutarProdutosExtra() {
 // ================================================================
 // SISTEMA DE VERSÃO / ATUALIZAÇÃO DO APP
 // ================================================================
-const APP_VERSAO_LOCAL = '3.5.1'; // barra: 100% verde em RETIRADO e azul em CONFERIDO
+const APP_VERSAO_LOCAL = '3.6.0'; // bloqueio geral de requisicoes (contagem/inventario) controlado pelo master
 const URL_CORRETA = 'https://controladoriaamano-prog.github.io/requisicao-elton';
 let appVersaoAnterior = null;
 
@@ -5259,6 +5281,98 @@ function escutarForceUpdate(){
     executarForcaAtualizacao(d.nota||'O aplicativo foi atualizado.');
   });
 }
+// ================================================================
+// 🔒 BLOQUEIO GERAL DE REQUISIÇÕES (CONTAGEM / INVENTÁRIO)
+// ================================================================
+function escutarBloqueioGeral(){
+  if(!db) return;
+  db.ref('config/bloqueio_geral').on('value', snap => {
+    window._bloqueioGeral = snap.val() || {ativo:false};
+    renderBloqueioGeral(window._bloqueioGeral);
+  });
+}
+function renderBloqueioGeral(b){
+  const ativo = !!(b && b.ativo);
+  let ov = document.getElementById('bloqueioGeralOverlay');
+  let mb = document.getElementById('bloqueioMasterBanner');
+  let lb = document.getElementById('bloqueioLoginBanner');
+  const cfg = document.getElementById('bloqueioCfgStatus');
+  const cfgBtn = document.getElementById('bloqueioCfgBtn');
+  if(cfg){
+    cfg.innerHTML = ativo
+      ? '<span style="color:#c62828;font-weight:800">🔴 ATIVO — requisições bloqueadas para todos</span>'
+      : '<span style="color:#2e7d32;font-weight:800">🟢 LIBERADO — requisições funcionando normalmente</span>';
+  }
+  if(cfgBtn){
+    cfgBtn.textContent = ativo ? '🔓 DESBLOQUEAR REQUISIÇÕES' : '🔒 BLOQUEAR REQUISIÇÕES AGORA';
+    cfgBtn.style.background = ativo ? '#2e7d32' : '#c62828';
+  }
+  try { atualizarBloqueioRequisicao(); } catch(e) {}
+  if(!ativo){
+    if(ov) ov.remove(); if(mb) mb.remove(); if(lb) lb.remove();
+    return;
+  }
+  const motivo = _esc(b.motivo || 'CONTAGEM INVENTÁRIO');
+  const por = _esc(b.por || 'Master');
+  const hora = b.ts ? new Date(b.ts).toLocaleString('pt-BR') : '';
+  // MASTER: faixa no rodapé (não bloqueia o painel)
+  if(isMaster){
+    if(ov) ov.remove(); if(lb) lb.remove();
+    if(!mb){ mb = document.createElement('div'); mb.id='bloqueioMasterBanner'; document.body.appendChild(mb); }
+    mb.style.cssText='position:fixed;left:0;right:0;bottom:0;z-index:99998;background:#b71c1c;color:#fff;padding:10px 14px;display:flex;align-items:center;justify-content:center;gap:12px;font-weight:700;font-size:.85rem;box-shadow:0 -4px 16px rgba(0,0,0,.35);flex-wrap:wrap';
+    mb.innerHTML='🔒 <span>BLOQUEIO ATIVO — requisições suspensas ('+motivo+')</span><button onclick="toggleBloqueioGeral()" style="background:#fff;color:#b71c1c;border:none;border-radius:10px;padding:7px 14px;font-weight:800;cursor:pointer;font-size:.82rem">🔓 DESBLOQUEAR</button>';
+    return;
+  }
+  if(mb) mb.remove();
+  // Ainda na tela de login: aviso não bloqueante (para o master conseguir entrar)
+  if(!usuarioAtual){
+    if(ov) ov.remove();
+    if(!lb){
+      lb = document.createElement('div'); lb.id='bloqueioLoginBanner';
+      const login = document.getElementById('loginScreen');
+      if(login) login.insertBefore(lb, login.firstChild); else document.body.appendChild(lb);
+    }
+    lb.style.cssText='width:100%;background:#b71c1c;color:#fff;text-align:center;padding:12px 16px;font-weight:800;font-size:.9rem;line-height:1.5;border-radius:12px;margin-bottom:14px';
+    lb.innerHTML='🔒 REQUISIÇÃO BLOQUEADA TEMPORARIAMENTE<br><span style="font-size:.8rem;font-weight:600;opacity:.95">'+motivo+' — aguarde a liberação do Elton.</span>';
+    return;
+  }
+  // OPERADOR LOGADO: tela cheia bloqueando tudo
+  if(lb) lb.remove();
+  if(!ov){ ov = document.createElement('div'); ov.id='bloqueioGeralOverlay'; document.body.appendChild(ov); }
+  ov.style.cssText='position:fixed;inset:0;z-index:99999;background:linear-gradient(160deg,#c62828,#7f0000);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:26px';
+  ov.innerHTML='<div style="font-size:4rem;line-height:1">🔒</div>'
+    +'<div style="font-size:1.35rem;font-weight:900;letter-spacing:.5px;margin:14px 0 6px">REQUISIÇÃO BLOQUEADA<br>TEMPORARIAMENTE</div>'
+    +'<div style="font-size:1.05rem;font-weight:800;letter-spacing:1px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.3);padding:10px 18px;border-radius:12px;margin:10px 0">'+motivo+'</div>'
+    +'<div style="font-size:.88rem;opacity:.92;max-width:430px;line-height:1.65;margin-top:8px">O sistema está bloqueado para requisições durante a contagem de inventário. Assim que o Elton liberar, você poderá fazer suas requisições normalmente.</div>'
+    +'<div style="font-size:.72rem;opacity:.75;margin-top:18px">Ativado por '+por+(hora?' · '+hora:'')+'</div>'
+    +'<button onclick="verificarBloqueioAgora()" style="margin-top:20px;background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.5);border-radius:12px;padding:11px 22px;font-weight:800;cursor:pointer;font-size:.88rem">🔄 Verificar liberação</button>'
+    +'<button onclick="logout()" style="margin-top:12px;background:transparent;color:#fff;border:none;opacity:.7;font-size:.78rem;cursor:pointer;text-decoration:underline">Sair da conta</button>';
+}
+function verificarBloqueioAgora(){
+  if(!db){ toast('⚠️ Sem conexão'); return; }
+  db.ref('config/bloqueio_geral').once('value').then(s => {
+    window._bloqueioGeral = s.val() || {ativo:false};
+    renderBloqueioGeral(window._bloqueioGeral);
+    if(window._bloqueioGeral.ativo) toast('🔒 Ainda bloqueado. Aguarde a liberação do Elton.', 3500, 'error');
+  }).catch(()=>{});
+}
+async function toggleBloqueioGeral(){
+  if(!db){ toast('⚠️ Sem conexão com o servidor'); return; }
+  const ativoAtual = !!(window._bloqueioGeral && window._bloqueioGeral.ativo);
+  const novo = !ativoAtual;
+  if(novo && !confirm('BLOQUEAR TODAS AS REQUISIÇÕES agora?\n\nNenhum operador conseguirá fazer requisição até você desbloquear.')) return;
+  if(!novo && !confirm('LIBERAR as requisições novamente para todos os operadores?')) return;
+  try{
+    await db.ref('config/bloqueio_geral').set({
+      ativo: novo,
+      motivo: novo ? 'CONTAGEM INVENTÁRIO' : '',
+      por: usuarioAtual || 'MASTER',
+      ts: Date.now()
+    });
+    toast(novo ? '🔒 Requisições BLOQUEADAS para todos!' : '🔓 Requisições LIBERADAS!', 3200, novo ? 'error' : 'success');
+  }catch(e){ toast('⚠️ Não foi possível alterar o bloqueio'); }
+}
+
 function executarForcaAtualizacao(nota){
   if(document.getElementById('forceOverlay')) return;
   const ov=document.createElement('div');
@@ -5404,7 +5518,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 // Escuta versão do app / force update assim que Firebase iniciar
-setTimeout(() => { if (db) { escutarVersaoApp(); escutarForceUpdate(); } }, 2000);
+setTimeout(() => { if (db) { escutarVersaoApp(); escutarForceUpdate(); escutarBloqueioGeral(); } }, 2000);
 
 </script>
 
