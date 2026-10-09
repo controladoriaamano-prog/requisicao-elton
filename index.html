@@ -67,6 +67,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .login-input{width:100%;padding:14px 16px;border:2px solid var(--border);border-radius:12px;font-size:1.05rem;transition:border-color .2s;background:#fafafa}
 .login-input:focus{outline:none;border-color:var(--primary-light);background:#fff}
 .login-btn{width:100%;padding:15px;border:none;border-radius:12px;font-size:1.1rem;font-weight:800;cursor:pointer;transition:all .2s;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px}
+.login-mode-toggle{display:flex;gap:8px;margin-bottom:18px}
+.login-mode-btn{flex:1;padding:12px 6px;border:2px solid var(--border);background:#fafafa;border-radius:12px;font-size:.78rem;font-weight:800;cursor:pointer;color:#666;transition:all .2s;line-height:1.25}
+.login-mode-btn.active{background:#1a237e;color:#fff;border-color:#1a237e;box-shadow:0 4px 14px rgba(26,35,126,.3)}
 .btn-entrar{background:linear-gradient(135deg,#1a237e,#3949ab);color:#fff;box-shadow:0 4px 16px rgba(26,35,126,.35)}
 .btn-entrar:hover{transform:translateY(-2px);box-shadow:0 6px 22px rgba(26,35,126,.5)}
 .divider{text-align:center;color:var(--muted);font-size:.85rem;margin:16px 0;position:relative}
@@ -421,6 +424,15 @@ body.tem-setor .req-card{border-left-color:var(--setor-cor,#1a237e)!important}
 .retirada-emoji{font-size:1.8rem;display:inline-block}
 #retiradaAlerta.pulsando .retirada-emoji{animation:bell-ring .9s infinite}
 
+/* ===== ALERTA DE ESTOQUE (marcações de baixa) ===== */
+#estoqueAlerta{position:fixed;left:0;right:0;top:0;z-index:99997;background:linear-gradient(135deg,#e65100,#ffa000);color:#fff;padding:12px 15px;display:none;align-items:center;gap:11px;box-shadow:0 6px 28px rgba(230,81,0,.5)}
+#estoqueAlerta.show{display:flex;animation:slideDown .4s ease}
+#estoqueAlerta.pulsando{animation:alarmePulse 1.2s infinite}
+.marca-select{padding:6px 8px;border:2px solid #ffcc80;background:#fff8e1;border-radius:8px;font-size:.74rem;font-weight:800;color:#e65100;max-width:160px}
+.motivo-select{display:none;padding:6px 8px;border:2px solid #ffcdd2;background:#fff;border-radius:8px;font-size:.74rem;color:#c62828;max-width:190px}
+.motivo-select.show{display:block}
+.marca-tag{display:inline-block;background:#fff3e0;color:#e65100;border:1px solid #ffcc80;border-radius:8px;padding:1px 8px;font-size:.72rem;font-weight:800;margin-left:6px}
+
 /* ===== CHAT COM O ESTOQUE ===== */
 #chatPanel{position:fixed;top:0;right:0;bottom:0;width:min(410px,100vw);background:#fff;z-index:8500;box-shadow:-4px 0 24px rgba(0,0,0,.2);transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column}
 #chatPanel.open{transform:translateX(0)}
@@ -499,6 +511,12 @@ body.tem-setor .req-card{border-left-color:var(--setor-cor,#1a237e)!important}
     <div class="login-sub">Sistema de Requisição e Controle</div>
     <div class="sync-badge" id="syncBadgeLogin">⚡ Sincronização em tempo real ativa</div>
 
+    <div class="login-mode-toggle">
+      <button type="button" id="loginModeColab" class="login-mode-btn active" onclick="setLoginMode('colab')">👤 Colaborador</button>
+      <button type="button" id="loginModeLog" class="login-mode-btn" onclick="setLoginMode('logistica')">🚚 SEPARAÇÃO E LOGÍSTICA</button>
+    </div>
+
+    <div id="loginColabFields">
     <div class="login-section">
       <label class="login-label">👤 Seu Nome</label>
       <input class="login-input" type="text" id="loginNome" placeholder="Digite seu nome completo..." maxlength="40" onkeydown="if(event.key==='Enter')fazerLogin()">
@@ -513,13 +531,24 @@ body.tem-setor .req-card{border-left-color:var(--setor-cor,#1a237e)!important}
       <label class="login-label">🏢 Seu Setor</label>
       <select class="login-input" id="loginSetor">
         <option value="">-- Selecione seu setor --</option>
-        <option value="REFEITORIO">REFEITÓRIO</option>
         <option value="MASSARIA">MASSARIA</option>
         <option value="LIMPEZA">LIMPEZA</option>
         <option value="CONFEITARIA">CONFEITARIA</option>
         <option value="BAR">BAR</option>
         <option value="COZINHA">COZINHA</option>
       </select>
+    </div>
+    </div>
+
+    <div id="loginLogFields" style="display:none">
+      <div class="login-section">
+        <label class="login-label">🚚 SEPARAÇÃO E LOGÍSTICA</label>
+        <input class="login-input" type="text" id="loginLogNome" placeholder="Nome do estoquista (cadastrado no Master)" maxlength="40" onkeydown="if(event.key==='Enter')fazerLogin()">
+      </div>
+      <div class="login-section">
+        <label class="login-label">🔒 Senha</label>
+        <input class="login-input" type="password" id="loginLogSenha" placeholder="Senha de acesso" maxlength="20" onkeydown="if(event.key==='Enter')fazerLogin()">
+      </div>
     </div>
 
     <button class="login-btn btn-entrar" onclick="fazerLogin()">✅ Entrar</button>
@@ -595,6 +624,7 @@ body.tem-setor .req-card{border-left-color:var(--setor-cor,#1a237e)!important}
       Todas as requisições enviadas pelos funcionários aparecem aqui automaticamente em tempo real.<br>
       Expanda uma requisição para dar as <strong>baixas por item</strong>.
     </div>
+    <div id="masterAlertasEstoque"></div>
     <div class="card">
       <div class="card-header">📋 REQUISIÇÕES RECEBIDAS</div>
       <div class="filter-bar">
@@ -626,7 +656,6 @@ body.tem-setor .req-card{border-left-color:var(--setor-cor,#1a237e)!important}
         <label>Setor</label>
         <select id="mContagemSetor" onchange="loadMasterContagem()">
           <option value="">-- Selecione --</option>
-          <option value="REFEITORIO">REFEITÓRIO</option>
           <option value="MASSARIA">MASSARIA</option>
           <option value="LIMPEZA">LIMPEZA</option>
           <option value="CONFEITARIA">CONFEITARIA</option>
@@ -668,7 +697,6 @@ body.tem-setor .req-card{border-left-color:var(--setor-cor,#1a237e)!important}
         <label>Filtrar Setor</label>
         <select id="mEstoqueSetor" onchange="loadMasterEstoque()">
           <option value="">Todos os Setores</option>
-          <option value="REFEITORIO">REFEITÓRIO</option>
           <option value="MASSARIA">MASSARIA</option>
           <option value="LIMPEZA">LIMPEZA</option>
           <option value="CONFEITARIA">CONFEITARIA</option>
@@ -702,7 +730,6 @@ body.tem-setor .req-card{border-left-color:var(--setor-cor,#1a237e)!important}
           <label>Setor</label>
           <select id="relSetor" onchange="renderRelatorios()">
             <option value="">Todos os Setores</option>
-            <option value="REFEITORIO">REFEITÓRIO</option>
             <option value="MASSARIA">MASSARIA</option>
             <option value="LIMPEZA">LIMPEZA</option>
             <option value="CONFEITARIA">CONFEITARIA</option>
@@ -767,6 +794,11 @@ body.tem-setor .req-card{border-left-color:var(--setor-cor,#1a237e)!important}
     </div>
 
     <div class="card">
+      <div class="card-header" style="background:linear-gradient(90deg,#e65100,#ffa000)">🏷️ MARCAÇÕES DE ESTOQUE (RESTA 1 / ÚLTIMO ENVIADO)</div>
+      <div class="modal-body" id="relMarcasArea"><p>Carregando...</p></div>
+    </div>
+
+    <div class="card">
       <div class="card-header" style="background:linear-gradient(90deg,#6a1b9a,#9c27b0)">🏢 RELATÓRIO POR SETOR</div>
       <div class="modal-body" id="relSetoresArea"><p>Carregando...</p></div>
     </div>
@@ -813,6 +845,58 @@ body.tem-setor .req-card{border-left-color:var(--setor-cor,#1a237e)!important}
     </div>
   </div>
   <div class="card">
+    <div class="card-header">🚚 SEPARAÇÃO E LOGÍSTICA</div>
+    <div class="modal-body">
+      <p style="font-size:.8rem;color:var(--muted);margin-bottom:10px;line-height:1.5">Cadastre o <b>nome</b> e a <b>senha</b> do estoquista. Esse acesso tem os mesmos poderes do Master para <b>atender requisições</b>, porém <b>sem Relatórios</b> e <b>sem Configurações</b>. O login é feito pela opção “🚚 SEPARAÇÃO E LOGÍSTICA”.</p>
+      <div class="form-row">
+        <div class="form-group"><label>Nome do estoquista</label><input type="text" id="cfgEstoqNome" placeholder="Ex: EMERSON" style="text-transform:uppercase"></div>
+        <div class="form-group"><label>Senha</label><input type="text" id="cfgEstoqSenha" placeholder="Senha de acesso"></div>
+      </div>
+      <div class="form-group" style="margin-bottom:10px">
+        <label style="display:flex;align-items:center;gap:8px;text-transform:none"><input type="checkbox" id="cfgEstoqAtivo" checked style="width:auto"> Acesso ativo</label>
+      </div>
+      <button class="btn btn-success btn-block" onclick="salvarEstoquista()">💾 Salvar acesso SEPARAÇÃO E LOGÍSTICA</button>
+      <p id="cfgEstoqStatus" style="font-size:.75rem;color:var(--muted);margin-top:8px"></p>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">📝 MOTIVOS DE NÃO ATENDIMENTO</div>
+    <div class="modal-body">
+      <p style="font-size:.8rem;color:var(--muted);margin-bottom:10px">Opções do menu de motivo ao marcar um item como “Não atendido”.</p>
+      <div id="cfgMotivosList"></div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <input type="text" id="cfgNovoMotivo" placeholder="Novo motivo..." style="flex:1;padding:9px;border:2px solid var(--border);border-radius:8px">
+        <button class="btn btn-primary" onclick="addMotivo()">➕ Adicionar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">🏷️ MARCAÇÕES DE ESTOQUE</div>
+    <div class="modal-body">
+      <p style="font-size:.8rem;color:var(--muted);margin-bottom:10px">Opções do menu de marcação ao dar baixa/saída (ex: última unidade, resta 1).</p>
+      <div id="cfgMarcasList"></div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <input type="text" id="cfgNovaMarca" placeholder="Nova marcação..." style="flex:1;padding:9px;border:2px solid var(--border);border-radius:8px">
+        <button class="btn btn-primary" onclick="addMarca()">➕ Adicionar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">🧩 SUB-SETORES DA COZINHA</div>
+    <div class="modal-body">
+      <p style="font-size:.8rem;color:var(--muted);margin-bottom:10px">Sub-setores exibidos na aba COZINHA (todos usam a mesma lista de itens da Cozinha).</p>
+      <div id="cfgSubsetoresList"></div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <input type="text" id="cfgNovoSub" placeholder="Novo sub-setor..." style="flex:1;padding:9px;border:2px solid var(--border);border-radius:8px">
+        <button class="btn btn-primary" onclick="addSubsetor()">➕ Adicionar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
     <div class="card-header">📊 ESTATÍSTICAS</div>
     <div class="modal-body" id="statsArea" style="font-size:.88rem;line-height:2">
       <p>Carregando...</p>
@@ -838,7 +922,6 @@ body.tem-setor .req-card{border-left-color:var(--setor-cor,#1a237e)!important}
           <label>🎯 Destino</label>
           <select id="avisoDestino" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:.85rem">
             <option value="TODOS">📣 Todos os Setores</option>
-            <option value="REFEITORIO">🍽️ Refeitório</option>
             <option value="MASSARIA">🍞 Massaria</option>
             <option value="LIMPEZA">🧹 Limpeza</option>
             <option value="CONFEITARIA">🎂 Confeitaria</option>
@@ -883,7 +966,6 @@ body.tem-setor .req-card{border-left-color:var(--setor-cor,#1a237e)!important}
             <label>Setor</label>
             <select id="prodSetorSelect" onchange="renderMasterProdutos()" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:.85rem">
               <option value="">-- Selecione --</option>
-              <option value="REFEITORIO">REFEITÓRIO</option>
               <option value="MASSARIA">MASSARIA</option>
               <option value="LIMPEZA">LIMPEZA</option>
               <option value="CONFEITARIA">CONFEITARIA</option>
@@ -935,12 +1017,17 @@ body.tem-setor .req-card{border-left-color:var(--setor-cor,#1a237e)!important}
         <label>Setor</label>
         <select id="fSetorSelect" onchange="loadFuncSetor(this.value)">
           <option value="">-- Selecione o Setor --</option>
-          <option value="REFEITORIO">REFEITÓRIO</option>
           <option value="MASSARIA">MASSARIA</option>
           <option value="LIMPEZA">LIMPEZA</option>
           <option value="CONFEITARIA">CONFEITARIA</option>
           <option value="BAR">BAR</option>
           <option value="COZINHA">COZINHA</option>
+        </select>
+      </div>
+      <div class="form-group" id="fReqSubWrap" style="display:none">
+        <label>Sub-setor da Cozinha</label>
+        <select id="fReqSubSetor" onchange="saveFuncSubSetor()">
+          <option value="">-- Selecione o sub-setor --</option>
         </select>
       </div>
       <div class="form-group">
@@ -1032,7 +1119,6 @@ body.tem-setor .req-card{border-left-color:var(--setor-cor,#1a237e)!important}
         <label>Setor</label>
         <select id="fContagemSetor" onchange="loadFuncContagem()">
           <option value="">-- Selecione --</option>
-          <option value="REFEITORIO">REFEITÓRIO</option>
           <option value="MASSARIA">MASSARIA</option>
           <option value="LIMPEZA">LIMPEZA</option>
           <option value="CONFEITARIA">CONFEITARIA</option>
@@ -1080,7 +1166,6 @@ body.tem-setor .req-card{border-left-color:var(--setor-cor,#1a237e)!important}
           <label>Setor</label>
           <select id="devSetor" onchange="loadDevSetor(this.value)">
             <option value="">-- Selecione o Setor --</option>
-            <option value="REFEITORIO">REFEITÓRIO</option>
             <option value="MASSARIA">MASSARIA</option>
             <option value="LIMPEZA">LIMPEZA</option>
             <option value="CONFEITARIA">CONFEITARIA</option>
@@ -1224,6 +1309,9 @@ body.tem-setor .req-card{border-left-color:var(--setor-cor,#1a237e)!important}
 <!-- Alerta insistente de retirada -->
 <div id="retiradaAlerta"></div>
 
+<!-- Alerta de marcações de estoque (RESTA 1 / ÚLTIMO ENVIADO) -->
+<div id="estoqueAlerta"></div>
+
 <div class="toast" id="toast"></div>
 
 <!-- ===== CHAT COM O ESTOQUE (todos os usuários) ===== -->
@@ -1274,6 +1362,41 @@ const MASTER_PASSWORD = '210419';
 function normalizarNome(nome){ return (nome||'').trim().toLowerCase().replace(/\s+/g,' '); }
 function isMasterName(nome){ return MASTER_ALIASES.includes(normalizarNome(nome)); }
 
+// ================================================================
+// SEPARAÇÃO E LOGÍSTICA (novo papel) + configurações dinâmicas
+// ================================================================
+const LOGISTICA_ROTULO = 'SEPARAÇÃO E LOGÍSTICA';
+let isLogistica = false;              // true quando logado como SEPARAÇÃO E LOGÍSTICA
+let loginModo = 'colab';              // 'colab' | 'logistica'
+let ESTOQUISTA = { nome: 'EMERSON', senha: '', ativo: true };
+let MOTIVOS_NAO_ATENDIDO = ['SEM ESTOQUE','PEDIDO EM EXCESSO','PEDIDO NÃO USADO NO SETOR','PENDENTE DE TROCA'];
+let MARCAS_ESTOQUE = ['RESTA 1','ÚLTIMO ENVIADO'];
+let SUBSETORES = { COZINHA: ['GRELHADOS','GARDE MANGER','REFEITÓRIO','GERAL'] };
+let alertasEstoqueSnapshot = {};
+// Setores top-level ativos (REFEITÓRIO virou sub-setor da COZINHA)
+const SETORES_ATIVOS = ['MASSARIA','LIMPEZA','CONFEITARIA','BAR','COZINHA'];
+
+function getSubSetores(setor){ return (SUBSETORES && SUBSETORES[setor]) ? SUBSETORES[setor] : []; }
+function isEstoquistaName(nome){
+  const n = normalizarNome(nome);
+  if (!n || !ESTOQUISTA || !ESTOQUISTA.nome) return false;
+  const alvo = normalizarNome(ESTOQUISTA.nome);
+  if (n === alvo) return true;
+  // aceita primeiro nome (ex: EMERSON) se o cadastro tiver nome completo
+  return n.split(' ')[0] === alvo.split(' ')[0] && alvo.split(' ')[0].length >= 3;
+}
+function setLoginMode(modo){
+  loginModo = modo;
+  const c = document.getElementById('loginModeColab');
+  const l = document.getElementById('loginModeLog');
+  const cf = document.getElementById('loginColabFields');
+  const lf = document.getElementById('loginLogFields');
+  if (c) c.classList.toggle('active', modo==='colab');
+  if (l) l.classList.toggle('active', modo==='logistica');
+  if (cf) cf.style.display = modo==='colab' ? 'block' : 'none';
+  if (lf) lf.style.display = modo==='logistica' ? 'block' : 'none';
+}
+
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyBQ70lgKcnXly1a940m5W71MRnjDd57pTE",
   authDomain: "requisicao-elton.firebaseapp.com",
@@ -1308,9 +1431,107 @@ function initFirebase(cfg) {
     document.getElementById('setupScreen').style.display = 'none';
     document.getElementById('loginScreen').style.display = 'flex';
     carregarRecentes();
+    iniciarConfigListeners();
   } catch(e) {
     toast('❌ Erro ao conectar Firebase: ' + e.message, 4000);
   }
+}
+
+// ================================================================
+// CONFIGURAÇÕES DINÂMICAS (estoquista, motivos, marcas, sub-setores)
+// ================================================================
+function iniciarConfigListeners(){
+  if (!db) return;
+  db.ref('config/estoquista').on('value', snap => {
+    const v = snap.val();
+    if (v && typeof v === 'object') {
+      ESTOQUISTA = {
+        nome: (v.nome||'EMERSON').toString(),
+        senha: (v.senha||'').toString(),
+        ativo: v.ativo !== false
+      };
+    }
+  });
+  db.ref('config/motivos').on('value', snap => {
+    const v = snap.val();
+    if (Array.isArray(v) && v.length) MOTIVOS_NAO_ATENDIDO = v.map(x=>String(x)).filter(Boolean);
+  });
+  db.ref('config/marcas').on('value', snap => {
+    const v = snap.val();
+    if (Array.isArray(v) && v.length) MARCAS_ESTOQUE = v.map(x=>String(x)).filter(Boolean);
+  });
+  db.ref('config/subsetores').on('value', snap => {
+    const v = snap.val();
+    if (v && typeof v === 'object') {
+      const limpo = {};
+      Object.entries(v).forEach(([k,arr]) => { if (Array.isArray(arr)) limpo[k] = arr.map(x=>String(x)).filter(Boolean); });
+      if (Object.keys(limpo).length) SUBSETORES = limpo;
+    }
+    const fs = document.getElementById('fSetorSelect')?.value;
+    if (fs) loadFuncSetor(fs);
+    const mc = document.getElementById('mContagemSetor')?.value; if (mc) loadMasterContagem();
+  });
+  escutarAlertasEstoque();
+}
+
+function getAlertasEstoquePendentes(){
+  return Object.entries(alertasEstoqueSnapshot)
+    .map(([id,a]) => ({id, ...a}))
+    .filter(a => a && !a.confirmado)
+    .sort((a,b) => (b.ts||0) - (a.ts||0));
+}
+function escutarAlertasEstoque(){
+  if (!db) return;
+  db.ref('alertasEstoque').on('value', snap => {
+    alertasEstoqueSnapshot = snap.val() || {};
+    renderAlertasEstoque();
+  });
+}
+function renderAlertasEstoque(){
+  // Banner fixo (apenas gestão)
+  const b = document.getElementById('estoqueAlerta');
+  const pend = getAlertasEstoquePendentes();
+  if (b) {
+    if ((isMaster || isLogistica) && pend.length) {
+      b.classList.add('show','pulsando');
+      b.innerHTML = `<div class="retirada-emoji">🚨</div>
+        <div style="flex:1">
+          <div style="font-weight:900;font-size:.95rem">ALERTA DE ESTOQUE (${pend.length})</div>
+          <div style="font-size:.74rem;opacity:.95">Últimas unidades / resta 1 un — confirme para liberar o alerta.</div>
+        </div>
+        <button onclick="confirmarTodosAlertasEstoque()" style="background:#fff;color:#e65100;border:none;border-radius:10px;padding:9px 12px;font-weight:800;font-size:.75rem;cursor:pointer;white-space:nowrap">✔ Confirmar todos</button>`;
+    } else {
+      b.classList.remove('show','pulsando'); b.innerHTML='';
+    }
+  }
+  // Painel no master-req
+  const area = document.getElementById('masterAlertasEstoque');
+  if (area) {
+    if (!pend.length) { area.innerHTML = ''; return; }
+    area.innerHTML = `<div class="card" style="margin-top:12px;border-left:5px solid #e65100">
+      <div class="card-header" style="background:linear-gradient(90deg,#e65100,#ffa000)">🚨 ALERTAS DE ESTOQUE — CONFIRME PARA LIBERAR</div>
+      <div class="modal-body">${pend.map(a=>`
+        <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid #f0f0f0;flex-wrap:wrap">
+          <span class="item-cod">${_esc(a.cod||'--')}</span>
+          <span style="flex:1;font-size:.86rem"><b>${_esc(a.nome||'')}</b> <small style="color:#757575">(${_esc(a.setor||'')}${a.subSetor?' · '+_esc(a.subSetor):''})</small></span>
+          <span class="marca-tag">${_esc(a.marca||'')}</span>
+          <small style="color:#757575;font-size:.72rem">${_esc(a.por||'')}</small>
+          <button class="btn btn-success" style="padding:6px 12px;font-size:.76rem" onclick="confirmarAlertaEstoque('${a.id}')">✔ Confirmar</button>
+        </div>`).join('')}</div></div>`;
+  }
+}
+function confirmarAlertaEstoque(id){
+  if (!db) return;
+  db.ref('alertasEstoque/'+id+'/confirmado').set(true)
+    .then(()=>toast('✅ Alerta confirmado'))
+    .catch(()=>{});
+}
+function confirmarTodosAlertasEstoque(){
+  const pend = getAlertasEstoquePendentes();
+  if (!pend.length || !db) return;
+  const up = {};
+  pend.forEach(a => { up['alertasEstoque/'+a.id+'/confirmado'] = true; });
+  db.ref().update(up).then(()=>toast('✅ Alertas confirmados')).catch(()=>{});
 }
 
 // ================================================================
@@ -1355,6 +1576,19 @@ document.getElementById('loginNome').addEventListener('input', function() {
 });
 
 function fazerLogin() {
+  // ── Acesso SEPARAÇÃO E LOGÍSTICA (nome + senha cadastrados pelo Master)
+  if (loginModo === 'logistica') {
+    const nome = (document.getElementById('loginLogNome')?.value || '').trim();
+    const senha = document.getElementById('loginLogSenha')?.value || '';
+    if (!nome) { toast('⚠️ Digite o nome do estoquista'); return; }
+    if (!ESTOQUISTA || !ESTOQUISTA.nome) { toast('⚠️ Nenhum estoquista cadastrado. Fale com o Master.'); return; }
+    if (!ESTOQUISTA.senha) { toast('🔒 Senha ainda não cadastrada. Peça ao Master para cadastrar o acesso em Config → SEPARAÇÃO E LOGÍSTICA.'); return; }
+    if (ESTOQUISTA.ativo === false) { toast('🔒 Acesso SEPARAÇÃO E LOGÍSTICA desativado pelo Master.'); return; }
+    if (!isEstoquistaName(nome)) { toast('🔒 Nome não confere com o cadastro do Master.'); return; }
+    if (String(senha) !== String(ESTOQUISTA.senha || '')) { toast('🔒 Senha incorreta'); return; }
+    entrar(nome, null, 'logistica');
+    return;
+  }
   const nome = document.getElementById('loginNome').value.trim();
   if (!nome) { toast('⚠️ Digite seu nome para entrar'); return; }
   const ehMaster = isMasterName(nome);
@@ -1367,13 +1601,15 @@ function fazerLogin() {
     document.getElementById('setorLoginArea').style.display = 'block';
     toast('⚠️ Selecione seu setor'); return;
   }
-  entrar(nome, ehMaster ? null : setorSel);
+  entrar(nome, ehMaster ? null : setorSel, ehMaster ? 'master' : 'funcionario');
 }
 
-function entrar(nome, setor) {
+function entrar(nome, setor, papel) {
   usuarioAtual = nome;
   setorUsuario = setor;
-  isMaster = isMasterName(nome);
+  papel = papel || (isMasterName(nome) ? 'master' : 'funcionario');
+  isLogistica = (papel === 'logistica');
+  isMaster = (papel === 'master' || papel === 'logistica'); // gestão (master ou logística)
 
   // Carrega estado local
   try {
@@ -1384,11 +1620,16 @@ function entrar(nome, setor) {
   // Esconde login, mostra app
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('appHeader').style.display = 'flex';
-  document.getElementById('nomeUsuarioHeader').textContent = nome + (isMaster ? ' 👑' : '');
-  document.getElementById('headerSub').textContent = isMaster ? ('🎯 Painel Master — Todas as Requisições · v'+APP_VERSAO_LOCAL) : `🏢 Setor: ${setor} · v${APP_VERSAO_LOCAL}`;
+  document.getElementById('nomeUsuarioHeader').textContent = isLogistica ? (nome + ' 🚚') : (nome + (isMaster ? ' 👑' : ''));
+  document.getElementById('headerSub').textContent = isLogistica ? ('🚚 ' + LOGISTICA_ROTULO + ' · v'+APP_VERSAO_LOCAL) : (isMaster ? ('🎯 Painel Master — Todas as Requisições · v'+APP_VERSAO_LOCAL) : `🏢 Setor: ${setor} · v${APP_VERSAO_LOCAL}`);
 
   if (isMaster) {
     document.getElementById('navTabsMaster').style.display = 'flex';
+    // 🚚 SEPARAÇÃO E LOGÍSTICA: mesmo acesso do Master, SEM Relatórios e SEM Config
+    const tabRel = document.getElementById('tab-master-relatorios');
+    const tabCfg = document.getElementById('tab-master-config');
+    if (tabRel) tabRel.style.display = isLogistica ? 'none' : 'inline-block';
+    if (tabCfg) tabCfg.style.display = isLogistica ? 'none' : 'inline-block';
     document.getElementById('page-master-req').classList.add('active');
     showPage('master-req');
     if (db) { escutarRequisicoes(); escutarContagens(); escutarAvisos(); escutarProdutosExtra(); }
@@ -1442,7 +1683,8 @@ function entrar(nome, setor) {
 
   renderBloqueioGeral(window._bloqueioGeral);
   updateClock();
-  toast(`👋 Bem-vindo${isMaster ? ', Elton! 👑' : ', ' + nome + '!'}`, 2500);
+  renderAlertasEstoque();
+  toast(`👋 Bem-vindo${isLogistica ? ', ' + nome + ' 🚚' : (isMaster ? ', Elton! 👑' : ', ' + nome + '!')}`, 2500);
 }
 
 function logout() {
@@ -1452,8 +1694,9 @@ function logout() {
   pararAlarmeRetirada();
   fecharChat();
   aplicarTemaSetor(null);
-  usuarioAtual = null; setorUsuario = null; isMaster = false;
+  usuarioAtual = null; setorUsuario = null; isMaster = false; isLogistica = false;
   localState = {}; reqsSnapshot = {}; contagensSnapshot = {};
+  { const ln = document.getElementById('loginLogNome'); if (ln) ln.value=''; const ls = document.getElementById('loginLogSenha'); if (ls) ls.value=''; setLoginMode('colab'); }
   funcPrevStatus = {}; funcPrimeiraExibicao = true;
   openReqCards.clear();
   document.getElementById('loginScreen').style.display = 'flex';
@@ -2082,7 +2325,7 @@ function renderMasterReqs() {
     return `<div class="req-card ${status}" id="reqcard_${id}">
       <div class="req-card-header" onclick="toggleReqCard('${id}')">
         <div>
-          <div class="req-card-title">📦 ${req.setor} <span style="font-size:.75rem;background:#e8eaf6;color:#1a237e;border-radius:8px;padding:2px 8px">${req.requisitante}</span></div>
+          <div class="req-card-title">📦 ${_esc(_setorLabel(req))} <span style="font-size:.75rem;background:#e8eaf6;color:#1a237e;border-radius:8px;padding:2px 8px">${req.requisitante}</span></div>
           <div class="req-card-meta">📅 ${hora} · ${totalItens} item${totalItens !== 1 ? 's' : ''}${req.conferencia && req.conferencia.concluida ? ' · 🔍 Conferido por '+_esc(req.conferencia.por||'—') : ''}</div>
         </div>
         <div class="req-card-badge ${badgeClass}">${badgeTxt}</div>
@@ -2133,7 +2376,8 @@ function renderReqBody(id, req) {
       <div class="atend-btns">
         <button class="tick-btn atendido ${baixa.status==='atendido'?'active':''}" onclick="darBaixa('${id}','${key}','atendido')">✓ Atendido</button>
         <button class="tick-btn nao-atendido ${baixa.status==='nao_atendido'?'active':''}" onclick="darBaixa('${id}','${key}','nao_atendido')">✗ Não</button>
-        <input type="text" class="motivo-input ${baixa.status==='nao_atendido'?'show':''}" value="${baixa.motivo||''}" placeholder="Motivo..." onchange="salvarMotivo('${id}','${key}',this.value)">
+        ${_motivoSelectHtml(id, key, baixa)}
+        ${_marcaSelectHtml(id, key, baixa)}
       </div>
     </div>`;
   });
@@ -2150,7 +2394,8 @@ function renderReqBody(id, req) {
       <div class="atend-btns">
         <button class="tick-btn atendido ${baixa.status==='atendido'?'active':''}" onclick="darBaixa('${id}','${key}','atendido')">✓ Atendido</button>
         <button class="tick-btn nao-atendido ${baixa.status==='nao_atendido'?'active':''}" onclick="darBaixa('${id}','${key}','nao_atendido')">✗ Não</button>
-        <input type="text" class="motivo-input ${baixa.status==='nao_atendido'?'show':''}" value="${baixa.motivo||''}" placeholder="Motivo..." onchange="salvarMotivo('${id}','${key}',this.value)">
+        ${_motivoSelectHtml(id, key, baixa)}
+        ${_marcaSelectHtml(id, key, baixa)}
       </div>
     </div>`;
   });
@@ -2243,7 +2488,34 @@ function darBaixa(reqId, itemKey, status) {
   }
 }
 
+// Monta o <select> de motivos predefinidos (editáveis pelo Master)
+function _motivoSelectHtml(reqId, key, baixa){
+  const cur = baixa.motivo || '';
+  const opts = MOTIVOS_NAO_ATENDIDO.slice();
+  if (cur && !opts.includes(cur)) opts.push(cur);
+  return `<select class="motivo-select ${baixa.status==='nao_atendido'?'show':''}" onchange="salvarMotivo('${reqId}','${key}',this.value)">
+    <option value="">Motivo...</option>
+    ${opts.map(m=>`<option value="${_esc(m)}"${cur===m?' selected':''}>${_esc(m)}</option>`).join('')}
+    <option value="__outro__">✏️ Outro (digitar)...</option>
+  </select>`;
+}
+// Monta o <select> de marcações de estoque (RESTA 1 / ÚLTIMO ENVIADO) — só para gestão
+function _marcaSelectHtml(reqId, key, baixa){
+  if (!(isMaster || isLogistica)) return '';
+  const cur = baixa.marca || '';
+  const opts = MARCAS_ESTOQUE.slice();
+  if (cur && !opts.includes(cur)) opts.push(cur);
+  return `<select class="marca-select" onchange="salvarMarca('${reqId}','${key}',this.value)">
+    <option value="">Estoque...</option>
+    ${opts.map(m=>`<option value="${_esc(m)}"${cur===m?' selected':''}>${_esc(m)}</option>`).join('')}
+  </select>`;
+}
 function salvarMotivo(reqId, itemKey, motivo) {
+  if (motivo === '__outro__') {
+    const txt = (prompt('Digite o motivo:') || '').trim();
+    if (!txt) { const sel=document.querySelector(`#reqbody_${reqId} select[onchange*="${itemKey}"]`); return; }
+    motivo = txt.toUpperCase();
+  }
   if (db && !podeEnviar()) {
     if (reqsSnapshot[reqId]?.baixas?.[itemKey]) reqsSnapshot[reqId].baixas[itemKey].motivo = motivo;
     try { cacheSnap('reqs', reqsSnapshot); } catch(e) {}
@@ -2259,6 +2531,46 @@ function salvarMotivo(reqId, itemKey, motivo) {
       salvarLocalState();
     }
   }
+}
+
+// ================================================================
+// MARCAÇÕES DE ESTOQUE (RESTA 1 / ÚLTIMO ENVIADO) + ALERTA AO MASTER
+// ================================================================
+function salvarMarca(reqId, itemKey, marca){
+  const req = reqsSnapshot[reqId];
+  const alertKey = reqId + '__' + itemKey;
+  if (db && !podeEnviar()) {
+    enfileirarOperacao(`requisicoes/${reqId}/baixas/${itemKey}/marca`, marca, {}, 'set');
+    toast('📴 Marcação guardada offline.', 2400, 'info');
+  } else if (db) {
+    db.ref(`requisicoes/${reqId}/baixas/${itemKey}/marca`).set(marca);
+  } else {
+    salvarLocalState();
+  }
+  if (req){
+    if (!req.baixas) req.baixas = {};
+    if (!req.baixas[itemKey]) req.baixas[itemKey] = {};
+    req.baixas[itemKey].marca = marca;
+    try { cacheSnap('reqs', reqsSnapshot); } catch(e) {}
+  }
+  if (marca) criarAlertaEstoque(reqId, itemKey, marca);
+  else if (db && podeEnviar()) db.ref('alertasEstoque/'+alertKey).remove().catch(()=>{});
+  renderAlertasEstoque();
+}
+function criarAlertaEstoque(reqId, itemKey, marca){
+  const req = reqsSnapshot[reqId] || {};
+  const it = _reqAllItems(req).find(x => x.key === itemKey) || {};
+  const alerta = {
+    reqId, itemKey, marca,
+    cod: it.cod || '', nome: it.nome || itemKey,
+    setor: req.setor || '', subSetor: req.subSetor || '',
+    requisitante: req.requisitante || '',
+    por: usuarioAtual || '', ts: Date.now(), confirmado: false
+  };
+  const key = reqId + '__' + itemKey;
+  if (db && podeEnviar()) db.ref('alertasEstoque/'+key).set(alerta).catch(()=>{});
+  else { alertasEstoqueSnapshot[key] = alerta; renderAlertasEstoque(); }
+  try { tocarSom('urgente'); } catch(e) {}
 }
 
 function marcarTudoAtendido(reqId) {
@@ -2448,8 +2760,16 @@ function enviarRequisicao() {
   const itensFiltrados = {};
   Object.entries(reqS.itens).forEach(([k,v]) => { if (v > 0) itensFiltrados[k] = v; });
 
+  const subs = getSubSetores(setor);
+  const subSetor = document.getElementById('fReqSubSetor')?.value || localState.req?.[setor]?.subSetor || '';
+  if (subs.length && !subSetor) {
+    toast('⚠️ Selecione o sub-setor da Cozinha antes de enviar');
+    return;
+  }
+
   const payload = {
     setor,
+    subSetor: subSetor || '',
     requisitante: reqS.nome || usuarioAtual,
     timestamp: Date.now(),
     data: new Date().toLocaleDateString('pt-BR'),
@@ -2808,19 +3128,20 @@ function renderFuncReqStatus() {
       const cls = baixa.status==='atendido'?'item-ok':baixa.status==='nao_atendido'?'item-no':'item-pend';
       const ico = baixa.status==='atendido'?'✓':baixa.status==='nao_atendido'?'✗':'⏳';
       const mot = baixa.motivo ? ` — ${baixa.motivo}` : '';
+      const marcaTag = baixa.marca ? ` <span class="marca-tag">🏷️ ${baixa.marca}</span>` : '';
       const unS = (req.unidades||{})[key]||'UN';
-      detailHtml+=`<div style="padding:5px 0;border-bottom:1px solid #f5f5f5;display:flex;gap:8px;align-items:center">
+      detailHtml+=`<div style="padding:5px 0;border-bottom:1px solid #f5f5f5;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <span class="item-cod">${item.cod}</span>
         <span style="flex:1;font-size:.85rem">${item.nome}</span>
         <span style="font-size:.72rem;font-weight:800;background:${unS==='KG'?'#e8f5e9':'#e8eaf6'};color:${unS==='KG'?'#2e7d32':'#1a237e'};border-radius:4px;padding:1px 6px">${unS}</span>
-        <span class="${cls}" style="font-size:.78rem">${ico} Qtd: ${qty}${mot}</span>
+        <span class="${cls}" style="font-size:.78rem">${ico} Qtd: ${qty}${mot}</span>${marcaTag}
       </div>`;
     });
 
     return `<div class="func-sent-card s-${ts}">
       <div class="sent-hdr" onclick="toggleFuncSentCard('${id}')">
         <div>
-          <div style="font-weight:700;font-size:.92rem">📦 ${_esc(req.setor)} · 👤 ${_esc(req.requisitante||'—')}${isMinha?' <span style="color:#2e7d32;font-size:.72rem">(você)</span>':''}</div>
+          <div style="font-weight:700;font-size:.92rem">📦 ${_esc(_setorLabel(req))} · 👤 ${_esc(req.requisitante||'—')}${isMinha?' <span style="color:#2e7d32;font-size:.72rem">(você)</span>':''}</div>
           <div style="font-size:.73rem;color:var(--muted)">📅 ${hora} · ${totalItens} item${totalItens!==1?'s':''}</div>
         </div>
         <span class="sent-status-pill ${pillClass}">${pillTxt}</span>
@@ -3299,6 +3620,7 @@ function renderRelatorios() {
   const limiteTs = periodoDias > 0 ? (agora - periodoDias*24*60*60*1000) : 0;
 
   const itemMap = _relItemMapGlobal();
+  const setorLabelReq = r => (r.setor||'') + (r.subSetor ? ' · ' + r.subSetor : '');
 
   // Filtra requisições pelo setor e período
   const reqs = Object.entries(reqsSnapshot).filter(([id, r]) => {
@@ -3311,36 +3633,42 @@ function renderRelatorios() {
   const itemStats = {}; // chave global setor+key
   // Para itens "parados", precisamos olhar TODAS as requisicoes (sem filtro de periodo) para achar ultima data
   const todasReqsSetor = Object.entries(reqsSnapshot).filter(([id, r]) => !setorFiltro || r.setor === setorFiltro);
-  const ultimaDataItem = {}; // chave -> timestamp mais recente
+  const ultimaDataItem = {}; // chave (setor·sub) -> timestamp mais recente
+  const ultimaDataItemSetor = {}; // chave (setor) -> timestamp mais recente (para itens parados)
 
   todasReqsSetor.forEach(([id, r]) => {
     const ts = r.timestamp || 0;
+    const sLabel = setorLabelReq(r);
+    const bump = (map, k) => { if (!map[k] || ts > map[k]) map[k] = ts; };
     Object.entries(r.itens||{}).forEach(([key, qty]) => {
       if (parseFloat(qty) <= 0) return;
-      const gkey = r.setor+'||'+key;
-      if (!ultimaDataItem[gkey] || ts > ultimaDataItem[gkey]) ultimaDataItem[gkey] = ts;
+      bump(ultimaDataItem, sLabel+'||'+key);
+      bump(ultimaDataItemSetor, r.setor+'||'+key);
     });
     (r.extras||[]).forEach(ex => {
-      const gkey = r.setor+'||extra::'+(ex.nome||'').toUpperCase();
-      if (!ultimaDataItem[gkey] || ts > ultimaDataItem[gkey]) ultimaDataItem[gkey] = ts;
+      bump(ultimaDataItem, sLabel+'||extra::'+(ex.nome||'').toUpperCase());
+      bump(ultimaDataItemSetor, r.setor+'||extra::'+(ex.nome||'').toUpperCase());
     });
   });
 
   let totalItensPedidos = 0;
   let totalNaoAtendido = 0;
   let totalAtendido = 0;
+  const marcasCount = {}; // marca -> qtd
+  const marcasItens = [];
   const diasComPedido = {}; // dataStr -> Set(gkey) itens pedidos naquele dia
   const reqNaoAtendCount = {}; // reqId -> qtd itens nao atendidos
 
   reqs.forEach(([id, r]) => {
     const dataStr = r.data || new Date(r.timestamp||Date.now()).toLocaleDateString('pt-BR');
     if (!diasComPedido[dataStr]) diasComPedido[dataStr] = new Set();
+    const sLabel = setorLabelReq(r);
     Object.entries(r.itens||{}).forEach(([key, qty]) => {
       const q = parseFloat(qty)||0;
       if (q <= 0) return;
-      const gkey = r.setor+'||'+key;
-      const info = itemMap[gkey] || {cod:'?', nome:key, setor:r.setor};
-      if (!itemStats[gkey]) itemStats[gkey] = {cod:info.cod, nome:info.nome, setor:info.setor, qtdTotal:0, freq:0, naoAtend:0, atend:0, reqIds:new Set()};
+      const gkey = sLabel+'||'+key;
+      const info = itemMap[r.setor+'||'+key] || {cod:'?', nome:key, setor:r.setor};
+      if (!itemStats[gkey]) itemStats[gkey] = {cod:info.cod, nome:info.nome, setor:sLabel, qtdTotal:0, freq:0, naoAtend:0, atend:0, reqIds:new Set()};
       itemStats[gkey].qtdTotal += q;
       itemStats[gkey].reqIds.add(id);
       totalItensPedidos += q;
@@ -3348,12 +3676,13 @@ function renderRelatorios() {
       const baixa = r.baixas?.[key];
       if (baixa?.status === 'nao_atendido') { itemStats[gkey].naoAtend++; totalNaoAtendido++; reqNaoAtendCount[id] = (reqNaoAtendCount[id]||0)+1; }
       else if (baixa?.status === 'atendido') { itemStats[gkey].atend++; totalAtendido++; }
+      if (baixa?.marca) { marcasCount[baixa.marca] = (marcasCount[baixa.marca]||0)+1; marcasItens.push({cod:info.cod, nome:info.nome, setor:sLabel, marca:baixa.marca, reqId:id, requisitante:r.requisitante, data:r.data||''}); }
     });
     (r.extras||[]).forEach((ex,i) => {
       const q = parseFloat(ex.qty)||0;
       if (q <= 0) return;
-      const gkey = r.setor+'||extra::'+(ex.nome||'').toUpperCase();
-      if (!itemStats[gkey]) itemStats[gkey] = {cod:ex.cod||'--', nome:ex.nome+' (extra)', setor:r.setor, qtdTotal:0, freq:0, naoAtend:0, atend:0, reqIds:new Set()};
+      const gkey = sLabel+'||extra::'+(ex.nome||'').toUpperCase();
+      if (!itemStats[gkey]) itemStats[gkey] = {cod:ex.cod||'--', nome:ex.nome+' (extra)', setor:sLabel, qtdTotal:0, freq:0, naoAtend:0, atend:0, reqIds:new Set()};
       itemStats[gkey].qtdTotal += q;
       itemStats[gkey].reqIds.add(id);
       totalItensPedidos += q;
@@ -3361,6 +3690,7 @@ function renderRelatorios() {
       const baixa = r.baixas?.['extra_'+i];
       if (baixa?.status === 'nao_atendido') { itemStats[gkey].naoAtend++; totalNaoAtendido++; reqNaoAtendCount[id] = (reqNaoAtendCount[id]||0)+1; }
       else if (baixa?.status === 'atendido') { itemStats[gkey].atend++; totalAtendido++; }
+      if (baixa?.marca) { marcasCount[baixa.marca] = (marcasCount[baixa.marca]||0)+1; marcasItens.push({cod:ex.cod||'--', nome:ex.nome+' (extra)', setor:sLabel, marca:baixa.marca, reqId:id, requisitante:r.requisitante, data:r.data||''}); }
     });
   });
   Object.values(itemStats).forEach(it => { it.freq = it.reqIds.size; });
@@ -3379,6 +3709,7 @@ function renderRelatorios() {
       <p>🏷️ <strong>Itens distintos pedidos:</strong> ${itensDistintos}</p>
       <p>🏢 <strong>Setores ativos:</strong> ${setoresUnicos}</p>
       <p>✅ <strong>Baixas atendidas:</strong> ${totalAtendido} &nbsp; ❌ <strong>Não atendidas:</strong> ${totalNaoAtendido}</p>
+      <p>🏷️ <strong>Marcações de estoque:</strong> ${Object.entries(marcasCount).map(([m,n])=>`${m}: <b>${n}</b>`).join(' &nbsp;·&nbsp; ') || 'nenhuma'}</p>
       <p style="font-size:.75rem;color:var(--muted);margin-top:6px">Período: ${periodoDias>0? 'últimos '+periodoDias+' dias' : 'todo o histórico'} ${setorFiltro? '· Setor: '+setorFiltro : '· Todos os setores'}</p>
     `;
   }
@@ -3431,12 +3762,12 @@ function renderRelatorios() {
   const paradosEl = document.getElementById('relParadosArea');
   if (paradosEl) {
     const LIMIAR_30D = agora - 30*24*60*60*1000;
-    const setoresParaChecar = setorFiltro ? [setorFiltro] : Object.keys(DATA||{});
+    const setoresParaChecar = setorFiltro ? [setorFiltro] : SETORES_ATIVOS.filter(s=>(DATA||{})[s]);
     const parados = [];
     setoresParaChecar.forEach(setor => {
       (DATA[setor]||[]).forEach(cat => cat.itens.forEach(item => {
         const gkey = setor+'||'+item.cod+'_'+item.nome.replace(/[^a-zA-Z0-9]/g,'');
-        const ultima = ultimaDataItem[gkey];
+        const ultima = ultimaDataItemSetor[gkey];
         if (!ultima || ultima < LIMIAR_30D) {
           parados.push({cod:item.cod, nome:item.nome, setor, ultima});
         }
@@ -3464,6 +3795,22 @@ function renderRelatorios() {
       <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;color:var(--muted);margin:14px 0 6px">Requisições com mais itens não atendidos</div>
       ${reqsNaoAtend || '<div class="empty" style="padding:10px"><p>Nenhuma requisição com itens não atendidos.</p></div>'}
     `;
+  }
+
+  // ---- MARCAÇÕES DE ESTOQUE (RESTA 1 / ÚLTIMO ENVIADO) ----
+  const marcasEl = document.getElementById('relMarcasArea');
+  if (marcasEl) {
+    if (!marcasItens.length) {
+      marcasEl.innerHTML = '<div class="empty" style="padding:16px"><p>Nenhuma marcação de estoque no período.</p></div>';
+    } else {
+      marcasEl.innerHTML = `<div style="font-size:.78rem;color:var(--muted);margin-bottom:8px">${marcasItens.length} marcação(ões). Use para saber quando saiu a última unidade / resta 1.</div>` +
+        marcasItens.map(m => `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f0f0f0;flex-wrap:wrap">
+          <span class="item-cod">${_esc(m.cod)}</span>
+          <span style="flex:1;font-size:.88rem">${_esc(m.nome)} <small style="color:var(--muted)">(${_esc(m.setor)})</small></span>
+          <span class="marca-tag">${_esc(m.marca)}</span>
+          <small style="color:var(--muted);font-size:.72rem">${_esc(m.requisitante||'')} · ${_esc(m.data||'')}</small>
+        </div>`).join('');
+    }
   }
 
   // ---- RELATÓRIO POR SETOR ----
@@ -3599,15 +3946,35 @@ function loadFuncSetor(setor) {
     document.getElementById('fReqItemsArea').innerHTML = '<div class="empty"><div class="icon">👆</div><p>Selecione o setor acima</p></div>';
     document.getElementById('fReqActionBar').style.display = 'none';
     document.getElementById('btnEnviarReq').style.display = 'none';
+    const w0 = document.getElementById('fReqSubWrap'); if (w0) w0.style.display = 'none';
     return;
   }
   ensureReq(setor);
   if (!isMaster) aplicarTemaSetor(setor);
+  // 🧩 Sub-setores (ex: COZINHA › GRELHADOS / GARDE MANGER / REFEITÓRIO / GERAL)
+  const subs = getSubSetores(setor);
+  const wrap = document.getElementById('fReqSubWrap');
+  const selSub = document.getElementById('fReqSubSetor');
+  if (wrap && selSub) {
+    if (subs.length) {
+      wrap.style.display = 'block';
+      selSub.innerHTML = '<option value="">-- Selecione o sub-setor --</option>' + subs.map(s=>`<option value="${_esc(s)}">${_esc(s)}</option>`).join('');
+      selSub.value = localState.req[setor].subSetor || '';
+    } else { wrap.style.display = 'none'; selSub.value = ''; }
+  }
   document.getElementById('fReqNome').value = localState.req[setor].nome || usuarioAtual || '';
   document.getElementById('fReqActionBar').style.display = 'flex';
   document.getElementById('btnEnviarReq').style.display = 'flex';
   renderFuncReqItems(setor);
   atualizarBloqueioRequisicao();
+}
+
+function saveFuncSubSetor(){
+  const setor = document.getElementById('fSetorSelect')?.value; if (!setor) return;
+  ensureReq(setor);
+  localState.req[setor].subSetor = document.getElementById('fReqSubSetor')?.value || '';
+  saveLocalState();
+  renderFuncReqItems(setor);
 }
 
 function renderFuncReqItems(setor) {
@@ -3622,6 +3989,13 @@ function renderFuncReqItems(setor) {
       <div style="flex:1"><b>CONFERÊNCIA OBRIGATÓRIA DO SETOR</b><span>Este setor tem ${pend.length} requisição(ões) liberada(s) para retirada. Qualquer operador confere os itens atendidos e não atendidos para liberar novas requisições.</span></div>
       <button onclick="abrirConferencia('${pend[0]}')">Conferir agora</button>
     </div>`;
+  }
+  // 🧩 Contexto do sub-setor
+  const _subs = getSubSetores(setor);
+  if (_subs.length) {
+    const subAtual = s.subSetor || '';
+    banners += `<div class="info-banner" style="background:${subAtual?'#e8f5e9':'#fff8e1'};border-left:5px solid ${subAtual?'#2e7d32':'#e65100'};margin:0 0 12px">
+      🧩 Sub-setor: <b>${subAtual ? _esc(subAtual) : 'não selecionado'}</b> — ${subAtual ? 'itens da COZINHA' : 'selecione o sub-setor acima para liberar o envio'}</div>`;
   }
   // ✅ Banner de espelho (requisição enviada, itens mantidos)
   if (s.enviadaEm) {
@@ -3800,7 +4174,7 @@ function fRemoveExtra(idx, setor) {
 function fLimparRequisicao() {
   const setor = document.getElementById('fSetorSelect')?.value; if (!setor) return;
   if (!confirm('Limpar toda a requisição do setor ' + setor + '?')) return;
-  localState.req[setor] = {nome: localState.req[setor]?.nome||'', itens:{}, extras:[], unidades:{}};
+  localState.req[setor] = {nome: localState.req[setor]?.nome||'', itens:{}, extras:[], unidades:{}, subSetor: localState.req[setor]?.subSetor||''};
   saveLocalState();
   renderFuncReqItems(setor);
   atualizarBloqueioRequisicao();
@@ -3818,7 +4192,7 @@ function fNovaRequisicao() {
     return;
   }
   if (!confirm('Iniciar uma NOVA requisição? O espelho atual será limpo.')) return;
-  localState.req[setor] = {nome: localState.req[setor]?.nome||usuarioAtual||'', itens:{}, extras:[], unidades:{}};
+  localState.req[setor] = {nome: localState.req[setor]?.nome||usuarioAtual||'', itens:{}, extras:[], unidades:{}, subSetor: localState.req[setor]?.subSetor||''};
   saveLocalState();
   renderFuncReqItems(setor);
   atualizarBloqueioRequisicao();
@@ -4097,7 +4471,7 @@ function filterMasterEstoque() {
   renderMasterEstoque(document.getElementById('mEstoqueSetor').value, document.getElementById('mEstoqueSearch').value.toLowerCase());
 }
 function renderMasterEstoque(setor, query) {
-  const setores = setor?[setor]:Object.keys(DATA);
+  const setores = setor?[setor]:SETORES_ATIVOS.filter(s=>DATA[s]);
   // Agrega qtds de req recebidas
   const reqAgg = {};
   Object.values(reqsSnapshot).forEach(req => {
@@ -4182,7 +4556,7 @@ function gerarPDFBaixas(reqId) {
   const tbl=(t,rows)=>rows?`<h3>${t}</h3><table><thead><tr><th>Cód</th><th>Item</th><th>Qtd</th><th>Un</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`:'';
 
   const w=window.open('','_blank');
-  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Baixas ${req.setor}</title><style>body{font-family:Arial,sans-serif;padding:20px}h2{color:#1a237e;border-bottom:3px solid #1a237e;padding-bottom:8px}h3{margin:18px 0 6px;color:#333}table{width:100%;border-collapse:collapse;margin-bottom:14px}th{background:#1a237e;color:#fff;padding:8px;font-size:.8rem;text-align:left}td{padding:7px 8px;border-bottom:1px solid #e0e0e0;font-size:.8rem}tr:nth-child(even){background:#f5f5f5}</style></head><body><h2>✅ BAIXAS — ${req.setor}</h2><p style="font-size:.85rem;margin:8px 0"><b>Requisitante:</b> ${req.requisitante} | <b>Data:</b> ${d} ${h}</p>${tbl('✓ Atendidos',at)}${tbl('✗ Não Atendidos',na)}${tbl('⏳ Pendentes',pend)}<script>window.onload=()=>window.print()<\/script></body></html>`);
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Baixas ${req.setor}</title><style>body{font-family:Arial,sans-serif;padding:20px}h2{color:#1a237e;border-bottom:3px solid #1a237e;padding-bottom:8px}h3{margin:18px 0 6px;color:#333}table{width:100%;border-collapse:collapse;margin-bottom:14px}th{background:#1a237e;color:#fff;padding:8px;font-size:.8rem;text-align:left}td{padding:7px 8px;border-bottom:1px solid #e0e0e0;font-size:.8rem}tr:nth-child(even){background:#f5f5f5}</style></head><body><h2>✅ BAIXAS — ${_setorLabel(req)}</h2><p style="font-size:.85rem;margin:8px 0"><b>Requisitante:</b> ${req.requisitante} | <b>Data:</b> ${d} ${h}</p>${tbl('✓ Atendidos',at)}${tbl('✗ Não Atendidos',na)}${tbl('⏳ Pendentes',pend)}<script>window.onload=()=>window.print()<\/script></body></html>`);
   w.document.close();
 }
 
@@ -4213,6 +4587,10 @@ function gerarPDFContagem(modo) {
 // NAVEGAÇÃO
 // ================================================================
 function showPage(id) {
+  if (isLogistica && (id === 'master-config' || id === 'master-relatorios')) {
+    toast('🚚 Seu acesso não inclui esta área.');
+    id = 'master-req';
+  }
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   const pg = document.getElementById('page-'+id);
@@ -4221,7 +4599,7 @@ function showPage(id) {
   if (tb) tb.classList.add('active');
   if (id === 'master-estoque') loadMasterEstoque();
   if (id === 'recebimento') { limparRecebimento(); renderRecebimentosLocais(); }
-  if (id === 'master-config') { atualizarStats(); renderHistoricoLocal(); }
+  if (id === 'master-config') { atualizarStats(); renderHistoricoLocal(); renderCfgEstoquista(); }
   if (id === 'func-status') renderFuncReqStatus();
   if (id === 'master-produtos') renderMasterProdutos();
   if (id === 'master-relatorios') renderRelatorios();
@@ -4374,7 +4752,7 @@ function escutarProdutosExtra() {
 // ================================================================
 // SISTEMA DE VERSÃO / ATUALIZAÇÃO DO APP
 // ================================================================
-const APP_VERSAO_LOCAL = '3.6.0'; // bloqueio geral de requisicoes (contagem/inventario) controlado pelo master
+const APP_VERSAO_LOCAL = '3.7.0'; // bloqueio geral + SEPARAÇÃO E LOGÍSTICA + marcas de estoque (RESTA 1/ÚLTIMO ENVIADO) + motivos + sub-setores COZINHA
 const URL_CORRETA = 'https://controladoriaamano-prog.github.io/requisicao-elton';
 let appVersaoAnterior = null;
 
@@ -4518,6 +4896,49 @@ function publicarAtualizacaoApp() {
 }
 
 // ================================================================
+// CONFIG MASTER — ESTOQUISTA / MOTIVOS / MARCAS / SUB-SETORES
+// ================================================================
+function renderCfgEstoquista(){
+  const n = document.getElementById('cfgEstoqNome'); if (!n) return;
+  n.value = ESTOQUISTA.nome || '';
+  const s = document.getElementById('cfgEstoqSenha'); if (s) s.value = ESTOQUISTA.senha || '';
+  const a = document.getElementById('cfgEstoqAtivo'); if (a) a.checked = ESTOQUISTA.ativo !== false;
+  const st = document.getElementById('cfgEstoqStatus');
+  if (st) st.textContent = 'Cadastro atual: ' + (ESTOQUISTA.nome || '—') + ' · ' + (ESTOQUISTA.ativo === false ? 'INATIVO' : 'ATIVO') + (ESTOQUISTA.senha ? ' · senha definida' : ' · SEM senha');
+  renderCfgListas();
+}
+function salvarEstoquista(){
+  if (!db) { toast('⚠️ Firebase não conectado'); return; }
+  const nome = (document.getElementById('cfgEstoqNome')?.value || '').trim().toUpperCase();
+  const senha = document.getElementById('cfgEstoqSenha')?.value || '';
+  const ativo = !!document.getElementById('cfgEstoqAtivo')?.checked;
+  if (!nome) { toast('⚠️ Informe o nome do estoquista'); return; }
+  if (!senha) { toast('⚠️ Informe a senha'); return; }
+  db.ref('config/estoquista').set({nome, senha, ativo, atualizadoPor: usuarioAtual || '', ts: Date.now()})
+    .then(() => { ESTOQUISTA = {nome, senha, ativo}; renderCfgEstoquista(); toast('✅ Acesso SEPARAÇÃO E LOGÍSTICA salvo!', 3200, 'success'); })
+    .catch(err => toast('❌ Erro: ' + err.message));
+}
+function _saveCfgList(path, arr){
+  if (!db) { toast('⚠️ Firebase não conectado'); return; }
+  db.ref(path).set(arr).catch(err => toast('❌ ' + err.message));
+}
+function renderCfgListas(){
+  const line = (txt, fn, i) => `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #f0f0f0"><span style="flex:1;font-size:.88rem">${_esc(txt)}</span><button class="btn" style="background:#ffebee;color:#c62828;padding:4px 10px" onclick="${fn}(${i})">🗑️</button></div>`;
+  const ml = document.getElementById('cfgMotivosList');
+  if (ml) ml.innerHTML = MOTIVOS_NAO_ATENDIDO.map((m,i)=>line(m,'remMotivo',i)).join('') || '<p style="font-size:.8rem;color:#999">Nenhum motivo.</p>';
+  const kl = document.getElementById('cfgMarcasList');
+  if (kl) kl.innerHTML = MARCAS_ESTOQUE.map((m,i)=>line(m,'remMarca',i)).join('') || '<p style="font-size:.8rem;color:#999">Nenhuma marcação.</p>';
+  const sl = document.getElementById('cfgSubsetoresList');
+  if (sl) { const subs = getSubSetores('COZINHA'); sl.innerHTML = subs.map((m,i)=>line(m,'remSubsetor',i)).join('') || '<p style="font-size:.8rem;color:#999">Nenhum sub-setor.</p>'; }
+}
+function addMotivo(){ const v=(document.getElementById('cfgNovoMotivo')?.value||'').trim().toUpperCase(); if(!v)return; if(MOTIVOS_NAO_ATENDIDO.includes(v)){toast('Já existe');return;} MOTIVOS_NAO_ATENDIDO.push(v); document.getElementById('cfgNovoMotivo').value=''; _saveCfgList('config/motivos',MOTIVOS_NAO_ATENDIDO); renderCfgListas(); toast('✅ Motivo adicionado'); }
+function remMotivo(i){ MOTIVOS_NAO_ATENDIDO.splice(i,1); _saveCfgList('config/motivos',MOTIVOS_NAO_ATENDIDO); renderCfgListas(); }
+function addMarca(){ const v=(document.getElementById('cfgNovaMarca')?.value||'').trim().toUpperCase(); if(!v)return; if(MARCAS_ESTOQUE.includes(v)){toast('Já existe');return;} MARCAS_ESTOQUE.push(v); document.getElementById('cfgNovaMarca').value=''; _saveCfgList('config/marcas',MARCAS_ESTOQUE); renderCfgListas(); toast('✅ Marcação adicionada'); }
+function remMarca(i){ MARCAS_ESTOQUE.splice(i,1); _saveCfgList('config/marcas',MARCAS_ESTOQUE); renderCfgListas(); }
+function addSubsetor(){ const v=(document.getElementById('cfgNovoSub')?.value||'').trim().toUpperCase(); if(!v)return; const subs=getSubSetores('COZINHA'); if(subs.includes(v)){toast('Já existe');return;} subs.push(v); SUBSETORES['COZINHA']=subs; document.getElementById('cfgNovoSub').value=''; _saveCfgList('config/subsetores',SUBSETORES); renderCfgListas(); toast('✅ Sub-setor adicionado'); }
+function remSubsetor(i){ const subs=getSubSetores('COZINHA'); subs.splice(i,1); SUBSETORES['COZINHA']=subs; _saveCfgList('config/subsetores',SUBSETORES); renderCfgListas(); }
+
+// ================================================================
 // INICIALIZAÇÃO — Firebase já embutido
 // ================================================================
 (function init() {
@@ -4555,6 +4976,8 @@ function aplicarTemaSetor(setor){
   if (wm) { wm.style.display = 'flex'; wm.textContent = t.emoji; }
 }
 function _esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+// Rótulo do setor com sub-setor (ex: COZINHA · GRELHADOS)
+function _setorLabel(req){ if(!req) return ''; return (req.setor||'') + (req.subSetor ? ' · ' + req.subSetor : ''); }
 
 // ================================================================
 // ↩️ DEVOLUÇÃO AO ESTOQUE (usuário JERSON)  (alteração 1)
@@ -4949,13 +5372,13 @@ function _reqAllItems(req){
   Object.entries(req.itens||{}).forEach(([key,qty]) => {
     if (parseFloat(qty) <= 0) return;
     const it = itemMap[key] || {cod:'?', nome:key};
-    const b = req.baixas?.[key] || {status:'', motivo:''};
-    arr.push({key, cod:it.cod, nome:it.nome, qty, un:(req.unidades||{})[key]||'UN', status:b.status||'', motivo:b.motivo||'', extra:false});
+    const b = req.baixas?.[key] || {status:'', motivo:'', marca:''};
+    arr.push({key, cod:it.cod, nome:it.nome, qty, un:(req.unidades||{})[key]||'UN', status:b.status||'', motivo:b.motivo||'', marca:b.marca||'', extra:false});
   });
   (req.extras||[]).forEach((ex,i) => {
     const key = 'extra_'+i;
-    const b = req.baixas?.[key] || {status:'', motivo:''};
-    arr.push({key, cod:ex.cod||'--', nome:ex.nome, qty:ex.qty||1, un:ex.un||'UN', status:b.status||'', motivo:b.motivo||'', extra:true});
+    const b = req.baixas?.[key] || {status:'', motivo:'', marca:''};
+    arr.push({key, cod:ex.cod||'--', nome:ex.nome, qty:ex.qty||1, un:ex.un||'UN', status:b.status||'', motivo:b.motivo||'', marca:b.marca||'', extra:true});
   });
   return arr;
 }
@@ -5013,6 +5436,7 @@ function abrirConferencia(reqId){
 }
 function renderConferencia(){
   const reqId = _confReqId; const req = reqsSnapshot[reqId];
+  if (!window._confChecked) window._confChecked = {};
   const box = document.getElementById('confBody'); if (!box || !req) return;
   const r = _confResumo(req);
   const jaConf = req.conferencia && req.conferencia.concluida;
@@ -5020,12 +5444,13 @@ function renderConferencia(){
     const cls = it.status==='atendido'?'conf-ok':it.status==='nao_atendido'?'conf-no':'conf-pend';
     const lbl = it.status==='atendido'?'✓ ATENDIDO':it.status==='nao_atendido'?'✗ NÃO ATENDIDO':'⏳ PENDENTE';
     const mot = it.status==='nao_atendido' ? `<div style="font-size:.74rem;color:#c62828;margin-top:3px">Motivo: <b>${_esc(it.motivo||'não informado')}</b></div>` : '';
+    const marcaTag = it.marca ? ` <span class="marca-tag">🏷️ ${_esc(it.marca)}</span>` : '';
     const checked = window._confChecked[it.key] ? 'checked' : '';
     const qtdVal = (window._confQtd && window._confQtd[it.key] !== undefined && window._confQtd[it.key] !== null) ? window._confQtd[it.key] : it.qty;
     return `<div class="conf-item">
       <input type="checkbox" ${checked} onchange="confMarcar('${it.key}',this.checked)">
       <div class="conf-name"><span class="item-cod">${_esc(it.cod)}</span> ${_esc(it.nome)}${it.extra?' <small style="color:#999">(extra)</small>':''}
-        <div style="font-size:.76rem;color:#666;margin-top:2px">Solicitado: <b>${it.qty} ${_esc(it.un)}</b></div>
+        <div style="font-size:.76rem;color:#666;margin-top:2px">Solicitado: <b>${it.qty} ${_esc(it.un)}</b>${marcaTag}</div>
         <div style="display:flex;align-items:center;gap:6px;margin-top:4px">
           <span style="font-size:.72rem;color:#555;font-weight:700">Qtd conferida:</span>
           <input type="number" min="0" step="0.01" value="${qtdVal}" oninput="confSetQtd('${it.key}',this.value)" style="width:78px;padding:4px 6px;border:2px solid #c5cae9;border-radius:8px;font-size:.82rem;font-weight:700">
@@ -5036,7 +5461,7 @@ function renderConferencia(){
   }).join('');
   const hora = req.timestamp ? new Date(req.timestamp).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
   box.innerHTML = `
-    <div style="font-size:.82rem;color:var(--muted);margin-bottom:10px">📦 <b>${_esc(req.setor)}</b> — ${_esc(req.requisitante)} · 📅 ${hora}</div>
+    <div style="font-size:.82rem;color:var(--muted);margin-bottom:10px">📦 <b>${_esc(_setorLabel(req))}</b> — ${_esc(req.requisitante)} · 📅 ${hora}</div>
     <div class="conf-resumo">
       <div class="cr"><b>${r.total}</b><span>Itens</span></div>
       <div class="cr"><b style="color:#2e7d32">${r.atendidos}</b><span>Atendidos</span></div>
@@ -5093,7 +5518,8 @@ function concluirConferencia(){
     requisitante: req.requisitante,
     data: req.data||'',
     hora: req.hora||'',
-    itens: itens.reduce((a,it)=>{ const qc = (window._confQtd && window._confQtd[it.key]!==undefined && window._confQtd[it.key]!=='') ? parseFloat(window._confQtd[it.key]) : (parseFloat(it.qty)||0); a[it.key]={ok:true,status:it.status||'pendente',motivo:it.motivo||'',qtd:it.qty,qtdConf:isNaN(qc)?(parseFloat(it.qty)||0):qc}; return a; },{}),
+    itens: itens.reduce((a,it)=>{ const qc = (window._confQtd && window._confQtd[it.key]!==undefined && window._confQtd[it.key]!=='') ? parseFloat(window._confQtd[it.key]) : (parseFloat(it.qty)||0); a[it.key]={ok:true,status:it.status||'pendente',motivo:it.motivo||'',marca:it.marca||'',qtd:it.qty,qtdConf:isNaN(qc)?(parseFloat(it.qty)||0):qc}; return a; },{}),
+    marcas: itens.filter(it=>it.marca).map(it=>({nome:it.nome,cod:it.cod,marca:it.marca})),
     resumo: {total:r.total, atendidos:r.atendidos, naoAtendidos:r.nao, pendentes:r.pend, totalConferido: itens.reduce((s,it)=>{ const qc=(window._confQtd && window._confQtd[it.key]!==undefined && window._confQtd[it.key]!=='')?parseFloat(window._confQtd[it.key]):(parseFloat(it.qty)||0); return s+(isNaN(qc)?0:qc); },0)}
   };
   const novHist = [...(req.trackHistory||[]), {status:'conferido', ts:Date.now(), por:usuarioAtual, conferido:true}];
@@ -5143,7 +5569,7 @@ function gerarEspelhoRequisicao(reqId){
   const confInfo = (req.conferencia && req.conferencia.concluida) ? `<p style="font-size:.8rem;background:#e8f5e9;padding:8px 10px;border-radius:8px;color:#2e7d32"><b>Conferida por:</b> ${req.conferencia.por||'—'} em ${req.conferencia.ts?new Date(req.conferencia.ts).toLocaleString('pt-BR'):'—'}</p>` : '';
   const w = window.open('','_blank');
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Espelho Requisição ${req.setor}</title><style>body{font-family:Arial,sans-serif;padding:20px;color:#212121}h2{color:#1a237e;border-bottom:3px solid #1a237e;padding-bottom:8px}.info{font-size:.85rem;margin:10px 0}.resumo{display:flex;gap:8px;margin:12px 0;flex-wrap:wrap}.resumo div{background:#e8eaf6;border-radius:8px;padding:8px 16px;text-align:center}.resumo b{display:block;font-size:1.4rem;color:#1a237e}.resumo span{font-size:.7rem;color:#666}table{width:100%;border-collapse:collapse;margin-top:14px}th{background:#1a237e;color:#fff;padding:9px;text-align:left;font-size:.82rem}td{padding:8px 10px;border-bottom:1px solid #e0e0e0;font-size:.82rem}tr:nth-child(even){background:#f5f5f5}.footer{margin-top:28px;border-top:1px solid #ccc;padding-top:10px;font-size:.75rem;color:#666}</style></head><body>
-  <h2>🧾 ESPELHO DA REQUISIÇÃO — ${req.setor}</h2>
+  <h2>🧾 ESPELHO DA REQUISIÇÃO — ${_setorLabel(req)}</h2>
   <div class="info"><b>Requisitante:</b> ${req.requisitante||'—'} &nbsp;|&nbsp; <b>Data:</b> ${d} &nbsp;|&nbsp; <b>Hora:</b> ${h} &nbsp;|&nbsp; <b>Situação:</b> ${TRACK_LABELS[st]||st}</div>
   ${confInfo}
   <div class="resumo">
@@ -5173,12 +5599,14 @@ function gerarRelatorioConferencia(reqId){
     const cor = it.status==='atendido'?'#2e7d32':it.status==='nao_atendido'?'#c62828':'#e65100';
     const ci = confItens[it.key] || {};
     const qtdConf = (ci.qtdConf!==undefined && ci.qtdConf!==null) ? ci.qtdConf : it.qty;
-    return `<tr><td>${it.cod}</td><td>${it.nome}${it.extra?' <small>(extra)</small>':''}</td><td style="text-align:center;font-weight:700">${it.qty}</td><td style="text-align:center">${it.un}</td><td style="text-align:center;font-weight:800;color:#1565c0">${qtdConf}</td><td style="color:${cor};font-weight:700">${stTxt}</td><td>${it.status==='nao_atendido'?(it.motivo||'—'):'—'}</td></tr>`;
+    return `<tr><td>${it.cod}</td><td>${it.nome}${it.extra?' <small>(extra)</small>':''}</td><td style="text-align:center;font-weight:700">${it.qty}</td><td style="text-align:center">${it.un}</td><td style="text-align:center;font-weight:800;color:#1565c0">${qtdConf}</td><td style="color:${cor};font-weight:700">${stTxt}</td><td>${it.status==='nao_atendido'?(it.motivo||'—'):'—'}</td><td style="color:#e65100;font-weight:700">${it.marca||'—'}</td></tr>`;
   }).join('');
   let divRows = divergencias.length ? divergencias.map(it=>`<li><b>${it.nome}</b> — ${it.status==='nao_atendido'?'NÃO ATENDIDO':'PENDENTE'}${it.motivo?': '+it.motivo:''}</li>`).join('') : '<li>Nenhuma divergência — todos os itens atendidos.</li>';
+  const marcasList = itens.filter(it=>it.marca);
+  const marcasHtml = marcasList.length ? marcasList.map(it=>`<li><b>${it.nome}</b> — ${it.marca}</li>`).join('') : '<li>Nenhuma marcação de estoque registrada.</li>';
   const w = window.open('','_blank');
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Relatório de Conferência ${req.setor}</title><style>body{font-family:Arial,sans-serif;padding:20px;color:#212121}h2{color:#1a237e;border-bottom:3px solid #1a237e;padding-bottom:8px}.info{font-size:.85rem;margin:10px 0}.resumo{display:flex;gap:8px;margin:12px 0;flex-wrap:wrap}.resumo div{background:#e8eaf6;border-radius:8px;padding:8px 16px;text-align:center}.resumo b{display:block;font-size:1.4rem;color:#1a237e}.resumo span{font-size:.7rem;color:#666}table{width:100%;border-collapse:collapse;margin-top:14px}th{background:#1a237e;color:#fff;padding:9px;text-align:left;font-size:.82rem}td{padding:8px 10px;border-bottom:1px solid #e0e0e0;font-size:.82rem}tr:nth-child(even){background:#f5f5f5}ul{margin:10px 0 0 18px;font-size:.85rem;line-height:1.7}.ass{margin-top:44px;display:flex;gap:40px}.ass div{flex:1;border-top:1px solid #999;padding-top:6px;font-size:.78rem;text-align:center}.footer{margin-top:24px;font-size:.72rem;color:#666}</style></head><body>
-  <h2>📋 RELATÓRIO DE CONFERÊNCIA — ${req.setor}</h2>
+  <h2>📋 RELATÓRIO DE CONFERÊNCIA — ${_setorLabel(req)}</h2>
   <div class="info"><b>Requisitante:</b> ${req.requisitante||'—'} &nbsp;|&nbsp; <b>Requisição:</b> ${d} ${h}<br><b>Conferido por:</b> ${conf.por||'—'} &nbsp;|&nbsp; <b>Conferência em:</b> ${confQuando}</div>
   <div class="resumo">
     <div><b>${r.total}</b><span>Itens</span></div>
@@ -5187,9 +5615,11 @@ function gerarRelatorioConferencia(reqId){
     <div><b style="color:#e65100">${r.pend}</b><span>Pendentes</span></div>
     <div><b style="color:#1565c0">${(conf.resumo&&conf.resumo.totalConferido!==undefined)?conf.resumo.totalConferido:'—'}</b><span>Total conferido</span></div>
   </div>
-  <table><thead><tr><th>Cód</th><th>Item</th><th>Qtd</th><th>Un</th><th>Conferido</th><th>Status</th><th>Motivo (não atendido)</th></tr></thead><tbody>${rows||'<tr><td colspan="7">Sem itens</td></tr>'}</tbody></table>
+  <table><thead><tr><th>Cód</th><th>Item</th><th>Qtd</th><th>Un</th><th>Conferido</th><th>Status</th><th>Motivo (não atendido)</th><th>Marcação estoque</th></tr></thead><tbody>${rows||'<tr><td colspan="8">Sem itens</td></tr>'}</tbody></table>
   <h3 style="margin-top:20px;color:#c62828">⚠️ Divergências / Não atendidos</h3>
   <ul>${divRows}</ul>
+  <h3 style="margin-top:20px;color:#e65100">🏷️ Marcações de Estoque (RESTA 1 / ÚLTIMO ENVIADO)</h3>
+  <ul>${marcasHtml}</ul>
   <div class="ass"><div>Assinatura do requisitante</div><div>Conferido pelo Estoque</div></div>
   <div class="footer">Relatório gerado em ${new Date().toLocaleString('pt-BR')} — REQUISIÇÃO ELTON</div>
   <script>window.onload=()=>window.print()<\/script></body></html>`);
