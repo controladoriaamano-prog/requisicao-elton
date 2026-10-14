@@ -13,13 +13,39 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
-messaging.onBackgroundMessage(function(payload) {
-  console.log('[firebase-messaging-sw.js] Mensagem recebida em background:', payload);
-  const notificationTitle = payload.notification?.title || 'Nova Requisição';
-  const notificationOptions = {
-    body: payload.notification?.body || 'Você tem uma nova notificação.',
+// Notificação recebida com o app FECHADO ou em segundo plano
+messaging.onBackgroundMessage(function (payload) {
+  const d = payload.data || {};
+  const n = payload.notification || {};
+  const title = n.title || d.titulo || 'Requisição Elton';
+  const body = n.body || d.corpo || 'Você tem uma nova notificação.';
+  const tag = d.tag || ('reqelton-' + Date.now());
+  return self.registration.showNotification(title, {
+    body: body,
     icon: '/requisicao-elton/icons/icon-192.png',
-    badge: '/requisicao-elton/icons/icon-192.png'
-  };
-  self.registration.showNotification(notificationTitle, notificationOptions);
+    badge: '/requisicao-elton/icons/icon-192.png',
+    tag: tag,
+    renotify: true,
+    requireInteraction: true,
+    vibrate: [400, 150, 400, 150, 700],
+    data: { url: d.url || '/requisicao-elton/' }
+  });
+});
+
+// Ao tocar na notificação, abre/foca o app
+self.addEventListener('notificationclick', function (e) {
+  e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || '/requisicao-elton/';
+  e.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (list) {
+      for (let i = 0; i < list.length; i++) {
+        const c = list[i];
+        if (c.url.indexOf('requisicao-elton') !== -1 && 'focus' in c) {
+          try { c.navigate(url); } catch (err) {}
+          return c.focus();
+        }
+      }
+      if (self.clients.openWindow) return self.clients.openWindow(url);
+    })
+  );
 });
