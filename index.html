@@ -472,6 +472,29 @@ body.tem-setor .req-card{border-left-color:var(--setor-cor,#1a237e)!important}
 .conf-check-all{display:flex;align-items:center;gap:10px;background:#eef1fb;border-radius:12px;padding:12px;margin:12px 0;font-size:.85rem;font-weight:700;cursor:pointer}
 .conf-check-all input{width:22px;height:22px;accent-color:#1a237e}
 
+/* ===== ATIVAR ALERTAS (som / vibração / notificação) ===== */
+#ativarAlertasBtn{position:relative}
+#ativarAlertasBtn.precisa{background:#ff6f00!important;animation:alarmePulse 1.2s infinite}
+.alertas-off-banner{background:linear-gradient(135deg,#e65100,#ffa000);color:#fff;border-radius:12px;padding:11px 14px;margin:0 0 12px;font-size:.82rem;font-weight:700;line-height:1.5;display:flex;align-items:center;gap:10px;box-shadow:0 6px 18px rgba(230,81,0,.35)}
+.alertas-off-banner span{flex:1}
+.alertas-off-banner button{margin-left:auto;background:#fff;color:#e65100;border:none;border-radius:10px;padding:9px 12px;font-weight:800;font-size:.76rem;cursor:pointer;white-space:nowrap}
+/* ===== ALERTA DE FECHAMENTO DE ESTOQUE ===== */
+#fechamentoAlerta{position:fixed;inset:0;z-index:99998;background:linear-gradient(160deg,#b71c1c,#e65100);display:none;align-items:center;justify-content:center;padding:22px;color:#fff}
+#fechamentoAlerta.show{display:flex;animation:fadeIn .3s ease}
+#fechamentoAlerta .fx-box{max-width:440px;width:100%;background:rgba(0,0,0,.22);border:2px solid rgba(255,255,255,.5);border-radius:22px;padding:26px 22px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+#fechamentoAlerta .fx-emoji{font-size:3.4rem;display:block;margin-bottom:8px;animation:alarmePulse 1s infinite}
+#fechamentoAlerta h2{font-size:1.35rem;font-weight:900;margin-bottom:10px;letter-spacing:.5px}
+#fechamentoAlerta p{font-size:.95rem;line-height:1.6;margin-bottom:18px;opacity:.97}
+#fechamentoAlerta button{width:100%;background:#fff;color:#b71c1c;border:none;border-radius:14px;padding:15px;font-size:1.02rem;font-weight:900;cursor:pointer}
+/* ===== DEVOLUÇÃO NÃO RETIRADO ===== */
+.dev-nr-item{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid #f0f0f0;font-size:.86rem;cursor:pointer}
+.dev-nr-item input{width:20px;height:20px;accent-color:#ad1457;flex-shrink:0}
+/* ===== DIVERGÊNCIA NA CONFERÊNCIA ===== */
+#modalConferencia .conf-item.divergente{background:#fff5f5;border-radius:10px;padding:10px;border-bottom:1px solid #ffcdd2}
+.conf-div-btn{background:#fff;border:2px solid #c62828;color:#c62828;border-radius:8px;padding:5px 9px;font-size:.72rem;font-weight:800;cursor:pointer;white-space:nowrap}
+.conf-div-btn.active{background:#c62828;color:#fff}
+.div-badge{display:inline-block;background:#ffebee;color:#c62828;border-radius:8px;padding:1px 7px;font-size:.7rem;font-weight:800;margin-left:4px}
+
 </style>
 </head>
 <body>
@@ -587,9 +610,11 @@ body.tem-setor .req-card{border-left-color:var(--setor-cor,#1a237e)!important}
         🔔
         <span class="notif-bell-badge" id="notifBadge" style="display:none">0</span>
       </button>
+      <button class="notif-bell-btn" id="ativarAlertasBtn" onclick="ativarAlertasApp()" style="display:none" title="Ativar som, vibração e notificações">🔕</button>
     </div>
   </div>
 </div>
+<div id="alertaPermissaoArea" class="no-print" style="max-width:900px;margin:10px auto 0;padding:0 16px"></div>
 
 <!-- ===== ABAS (Master) ===== -->
 <div class="nav-tabs no-print" id="navTabsMaster" style="display:none">
@@ -857,6 +882,29 @@ body.tem-setor .req-card{border-left-color:var(--setor-cor,#1a237e)!important}
       </div>
       <button class="btn btn-success btn-block" onclick="salvarEstoquista()">💾 Salvar acesso SEPARAÇÃO E LOGÍSTICA</button>
       <p id="cfgEstoqStatus" style="font-size:.75rem;color:var(--muted);margin-top:8px"></p>
+    </div>
+  </div>
+
+  <div class="card" style="border:2px solid #e65100">
+    <div class="card-header" style="background:linear-gradient(135deg,#e65100,#ffa000);color:#fff">⏰ FECHAMENTO DE ESTOQUE + ALERTAS</div>
+    <div class="modal-body">
+      <p style="font-size:.84rem;line-height:1.6;margin-bottom:10px">Alerta automático para <strong>todos os operadores</strong> avisando o horário de fechamento do estoque, com <strong>som, vibração e notificação</strong>. O aviso dispara alguns minutos antes e no horário exato.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+        <div class="form-group"><label>Horário de fechamento</label><input type="time" id="cfgFechHora" value="16:30" style="width:100%;padding:9px;border:2px solid var(--border);border-radius:8px"></div>
+        <div class="form-group"><label>Avisar antes (minutos)</label><input type="number" id="cfgFechAntecedencia" min="1" max="120" value="10" style="width:100%;padding:9px;border:2px solid var(--border);border-radius:8px"></div>
+      </div>
+      <div class="form-group" style="margin-bottom:10px">
+        <label style="display:flex;align-items:center;gap:8px;text-transform:none"><input type="checkbox" id="cfgFechAtivo" style="width:auto"> Alerta de fechamento ativo</label>
+      </div>
+      <div id="cfgFechStatus" style="font-size:.82rem;margin-bottom:10px">Carregando...</div>
+      <button class="btn btn-success btn-block" onclick="salvarFechamentoEstoque()">💾 Salvar configuração</button>
+      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+        <button class="btn btn-secondary" style="flex:1;min-width:140px" onclick="testarAlertaFechamento()">🔔 Testar neste aparelho</button>
+        <button class="btn btn-accent" style="flex:1;min-width:140px" onclick="avisarFechamentoAgora()">📢 Avisar todos agora</button>
+      </div>
+      <hr style="margin:14px 0;border:none;border-top:1px solid #eee">
+      <p style="font-size:.82rem;line-height:1.5;margin-bottom:8px">🔔 <strong>Permissão de alertas neste aparelho:</strong> o operador precisa tocar no botão abaixo (aparece no topo do app) para liberar som, vibração e notificação. Faça isso em cada celular.</p>
+      <button class="btn btn-primary btn-block" onclick="ativarAlertasApp()">🔔 ATIVAR ALERTAS NESTE APARELHO</button>
     </div>
   </div>
 
@@ -1263,6 +1311,14 @@ body.tem-setor .req-card{border-left-color:var(--setor-cor,#1a237e)!important}
   </div>
 </div>
 
+<!-- Modal Devolução Não Retirado (master / separação) -->
+<div class="modal-overlay" id="modalDevNaoRetirado">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header"><span>↩️ Devolução — Não Retirado</span><button class="modal-close" onclick="closeModal('modalDevNaoRetirado')">✕</button></div>
+    <div class="modal-body" id="devNrBody"></div>
+  </div>
+</div>
+
 <!-- ===== MODALS ===== -->
 <div class="modal-overlay" id="modalAddItem">
   <div class="modal">
@@ -1311,6 +1367,14 @@ body.tem-setor .req-card{border-left-color:var(--setor-cor,#1a237e)!important}
 
 <!-- Alerta de marcações de estoque (RESTA 1 / ÚLTIMO ENVIADO) -->
 <div id="estoqueAlerta"></div>
+
+<!-- Alerta geral de fechamento de estoque (16:30) -->
+<div id="fechamentoAlerta"><div class="fx-box">
+  <span class="fx-emoji" id="fxEmoji">⏰</span>
+  <h2 id="fxTitulo">ESTOQUE FINALIZANDO</h2>
+  <p id="fxTexto"></p>
+  <button onclick="fecharFechamentoAlerta()">✅ ENTENDI</button>
+</div></div>
 
 <div class="toast" id="toast"></div>
 
@@ -1669,6 +1733,13 @@ function entrar(nome, setor, papel) {
   atualizarStatusConexao();
   atualizarBadgeOffline();
   carregarSnapshotsOffline();  // abre instantâneo com os últimos dados salvos (offline-friendly)
+
+  // 🔔 Alertas: permissão, notificações direcionadas e fechamento de estoque
+  atualizarBtnAlertas();
+  if (db) { escutarNotificacoesOperador(); escutarFechamentoEstoque(); }
+  if (_fechTimer) clearInterval(_fechTimer);
+  _fechTimer = setInterval(verificarFechamentoEstoque, 30000);
+  setTimeout(verificarFechamentoEstoque, 4000);
   setTimeout(flushOutbox, 2500);
   setTimeout(() => mostrarPromptInstalar(false), 2600);
 
@@ -1690,8 +1761,12 @@ function entrar(nome, setor, papel) {
 function logout() {
   if (!confirm(`Sair da conta "${usuarioAtual}"?`)) return;
   // Remove listeners Firebase
-  if (db) { db.ref('requisicoes').off(); db.ref('contagens').off(); db.ref('devolucoes').off(); db.ref('mensagens').off(); }
+  if (db) { db.ref('requisicoes').off(); db.ref('contagens').off(); db.ref('devolucoes').off(); db.ref('mensagens').off(); db.ref('notificacoesOperador').off(); db.ref('config/fechamentoEstoque').off(); }
   pararAlarmeRetirada();
+  if (_fechTimer) { clearInterval(_fechTimer); _fechTimer = null; }
+  try { fecharFechamentoAlerta(); } catch(e) {}
+  window._notifOperadorIniciado = false;
+  try { _notifOperadorVistas.clear(); } catch(e) {}
   fecharChat();
   aplicarTemaSetor(null);
   usuarioAtual = null; setorUsuario = null; isMaster = false; isLogistica = false;
@@ -2415,13 +2490,22 @@ function renderReqBody(id, req) {
   };
   const trackBtnHtml = proxStep ? `<button class="btn btn-accent" onclick="updateTrackStatus('${id}','${proxStep}')" style="font-size:.8rem">${TRACK_LABELS_BTN[proxStep]||proxStep}</button>` : (curTrack==='conferido' ? `<span style="font-size:.8rem;color:#1565c0;font-weight:700">🔍 Requisição CONFERIDA pelo setor!</span>` : `<span style="font-size:.8rem;color:#2e7d32;font-weight:700">🏁 Requisição RETIRADA!</span>`);
 
-  return html + `<div class="req-actions">
+  let divHtml = '';
+  if (req.divergencias && req.divergencias.itens && req.divergencias.itens.length) {
+    divHtml = `<div style="background:#fff5f5;border:1px solid #ffcdd2;border-radius:10px;padding:10px 12px;margin:8px 0;font-size:.82rem;color:#b71c1c">
+      <b>↩️ Divergências da conferência (${req.divergencias.itens.length})</b> — devolvido por ${_esc(req.divergencias.por||'—')}<br>
+      ${req.divergencias.itens.map(it=>'• '+_esc(it.cod)+' '+_esc(it.nome)+' ('+it.qty+' '+_esc(it.un)+')').join('<br>')}
+      <div style="margin-top:6px;color:#7f0000">Aguarda nova separação destes itens.</div></div>`;
+  }
+  const jaDev = (req.trackStatus === 'nao_retirado') || !!req.naoRetirado;
+  return divHtml + html + `<div class="req-actions">
     ${trackBtnHtml}
     ${status !== 'atendido' ? `<button class="btn btn-success" onclick="marcarTudoAtendido('${id}')">✅ Tudo Atendido</button>` : ''}
     <button class="btn btn-warning" onclick="editarRequisicao('${id}')" style="font-size:.8rem">✏️ Editar</button>
     <button class="btn btn-danger" onclick="excluirRequisicao('${id}')">🗑️ Excluir</button>
     <button class="btn btn-secondary" onclick="gerarPDFBaixas('${id}')">📄 PDF</button>
     ${req.conferencia && req.conferencia.concluida ? `<button class="btn btn-success" onclick="gerarRelatorioConferencia('${id}')">🔍 Relatório de Conferência</button>` : ''}
+    ${jaDev ? '<span style="font-size:.78rem;color:#ad1457;font-weight:800;align-self:center">↩️ NÃO RETIRADO / DEVOLVIDO</span>' : `<button class="btn" style="background:#ad1457;color:#fff;font-size:.8rem" onclick="abrirDevolucaoNaoRetirado('${id}')">↩️ Devolução Não Retirado</button>`}
   </div>`;
 }
 
@@ -2907,12 +2991,14 @@ const TRACK_LABELS = {
   aguardando_retirada:'AGUARD. RETIRADA',
   retirado:'RETIRADO',
   conferido:'CONFERIDO',
+  nao_retirado:'NÃO RETIRADO',
   // legacy (dados antigos no Firebase)
   enviada:'RECEBIDO', lida:'VISUALIZADO', pronto:'AGUARD. RETIRADA', retirada:'RETIRADO'
 };
 const TRACK_ICONS = {
   recebido:'📥', visualizado:'👁️', separacao:'📦',
   finalizado:'✅', aguardando_retirada:'🔔', retirado:'🏁', conferido:'🔍',
+  nao_retirado:'↩️',
   enviada:'📥', lida:'👁️', pronto:'🔔', retirada:'🏁'
 };
 // Normaliza status legados para o novo padrão
@@ -2923,6 +3009,9 @@ function normalizeTrackStatus(ts) {
 
 function renderTrackBar(id, curStatus, isMasterView) {
   const norm = normalizeTrackStatus(curStatus);
+  if (norm === 'nao_retirado') {
+    return '<div class="track-bar" style="display:block;padding:10px 0"><div style="background:linear-gradient(90deg,#ad1457,#e91e63);color:#fff;border-radius:10px;padding:9px 14px;font-weight:900;font-size:.85rem;text-align:center">↩️ NÃO RETIRADO — itens devolvidos ao estoque</div></div>';
+  }
   const curIdx = TRACK_STEPS.indexOf(norm);
   // Em RETIRADO a linha já vai até o fim (verde); em CONFERIDO fica azul
   const linhaCompleta = (norm === 'retirado' || norm === 'conferido');
@@ -3059,6 +3148,8 @@ function renderFuncReqStatus() {
   const area = document.getElementById('funcReqStatusList');
   if (!area) return;
 
+  const _alertasOff = !permissoesOk() ? `<div class="alertas-off-banner"><span>🔕 Ative os alertas para receber <b>som, vibração e notificação</b> das suas requisições, conferências e do fechamento do estoque.</span><button onclick="ativarAlertasApp()">🔔 ATIVAR</button></div>` : '';
+
   // 🔍 CONFERÊNCIA EM DESTAQUE — aparece ANTES do espelho
   const _pendConf = temConferenciaPendente();
   const _confBanner = _pendConf.length ? `<div class="conf-banner" style="margin:0 0 12px">
@@ -3072,13 +3163,13 @@ function renderFuncReqStatus() {
   const todasSetor = _reqsEspelhoSetor(setorUsuario);
 
   // Requisições RETIRADAS somem da tela ativa (ficam só no histórico recolhível)
-  const _fim = (r) => ['retirado','conferido'].includes(normalizeTrackStatus(r.trackStatus||'recebido'));
+  const _fim = (r) => ['retirado','conferido','nao_retirado'].includes(normalizeTrackStatus(r.trackStatus||'recebido'));
   const minhasReqs = todasSetor.filter(([,r]) => !_fim(r));
   const minhasConcluidas = todasSetor.filter(([,r]) => _fim(r));
 
   // Se o setor não tiver requisições ativas, mostrar aviso
   if (!minhasReqs.length) {
-    area.innerHTML = _confBanner + `<div class="empty"><div class="icon">📭</div><p>Nenhuma requisição em andamento neste setor.</p><p style="font-size:.78rem;margin-top:6px;color:var(--muted)">O espelho mostra as 3 últimas requisições do setor ${_esc(setorUsuario||'')} com barra de progresso em tempo real.</p></div>` + _renderFuncConcluidasHtml(minhasConcluidas);
+    area.innerHTML = _alertasOff + _confBanner + `<div class="empty"><div class="icon">📭</div><p>Nenhuma requisição em andamento neste setor.</p><p style="font-size:.78rem;margin-top:6px;color:var(--muted)">O espelho mostra as 3 últimas requisições do setor ${_esc(setorUsuario||'')} com barra de progresso em tempo real.</p></div>` + _renderFuncConcluidasHtml(minhasConcluidas);
     const badge = document.getElementById('badge-func-status');
     if (badge) badge.style.display = 'none';
     return;
@@ -3108,7 +3199,7 @@ function renderFuncReqStatus() {
   // Header com badge do espelho do setor
   const myBadge = `<div class="my-reqs-badge">🏢 Espelho do setor ${_esc(setorUsuario||'')} — ${minhasReqs.length} requisição(ões) em andamento · visível a todos os operadores</div>`;
 
-  area.innerHTML = _confBanner + myBadge + minhasReqs.map(([id, req]) => {
+  area.innerHTML = _alertasOff + _confBanner + myBadge + minhasReqs.map(([id, req]) => {
     const ts = normalizeTrackStatus(req.trackStatus || 'recebido');
     const hora = req.timestamp ? new Date(req.timestamp).toLocaleString('pt-BR', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
     const pillClass = 'pill-'+ts;
@@ -3170,7 +3261,7 @@ function _renderFuncConcluidasHtml(concluidas) {
     return `<div style="padding:9px 12px;border-bottom:1px solid #f0f0f0;font-size:.82rem">
       <div style="display:flex;justify-content:space-between;gap:8px">
         <span>🏁 ${req.setor} · ${hora} · ${totalItens} item${totalItens!==1?'s':''}</span>
-        <span style="color:${normalizeTrackStatus(req.trackStatus||'')==='conferido'?'#1565c0':'#2e7d32'};font-weight:700">${normalizeTrackStatus(req.trackStatus||'')==='conferido'?'🔍 Conferido':'🏁 Retirado'}</span>
+        <span style="color:${normalizeTrackStatus(req.trackStatus||'')==='conferido'?'#1565c0':(normalizeTrackStatus(req.trackStatus||'')==='nao_retirado'?'#ad1457':'#2e7d32')};font-weight:700">${normalizeTrackStatus(req.trackStatus||'')==='conferido'?'🔍 Conferido':(normalizeTrackStatus(req.trackStatus||'')==='nao_retirado'?'↩️ Não retirado':'🏁 Retirado')}</span>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
         <button class="btn btn-secondary" style="font-size:.72rem;padding:6px 10px" onclick="gerarEspelhoRequisicao('${id}')">📄 Espelho</button>
@@ -4752,7 +4843,7 @@ function escutarProdutosExtra() {
 // ================================================================
 // SISTEMA DE VERSÃO / ATUALIZAÇÃO DO APP
 // ================================================================
-const APP_VERSAO_LOCAL = '3.7.0'; // bloqueio geral + SEPARAÇÃO E LOGÍSTICA + marcas de estoque (RESTA 1/ÚLTIMO ENVIADO) + motivos + sub-setores COZINHA
+const APP_VERSAO_LOCAL = '3.8.0'; // + devolução não retirado, alertas com som/vibração/notificação, fechamento de estoque 16:30 e devolução de divergências ao separador
 const URL_CORRETA = 'https://controladoriaamano-prog.github.io/requisicao-elton';
 let appVersaoAnterior = null;
 
@@ -5430,6 +5521,7 @@ function abrirConferencia(reqId){
   _confReqId = reqId;
   window._confChecked = {};
   window._confQtd = {};
+  window._confDiv = {};
   _reqAllItems(req).forEach(it => { window._confQtd[it.key] = it.qty; });
   renderConferencia();
   openModal('modalConferencia');
@@ -5446,8 +5538,9 @@ function renderConferencia(){
     const mot = it.status==='nao_atendido' ? `<div style="font-size:.74rem;color:#c62828;margin-top:3px">Motivo: <b>${_esc(it.motivo||'não informado')}</b></div>` : '';
     const marcaTag = it.marca ? ` <span class="marca-tag">🏷️ ${_esc(it.marca)}</span>` : '';
     const checked = window._confChecked[it.key] ? 'checked' : '';
+    const div = window._confDiv && window._confDiv[it.key];
     const qtdVal = (window._confQtd && window._confQtd[it.key] !== undefined && window._confQtd[it.key] !== null) ? window._confQtd[it.key] : it.qty;
-    return `<div class="conf-item">
+    return `<div class="conf-item ${div?'divergente':''}">
       <input type="checkbox" ${checked} onchange="confMarcar('${it.key}',this.checked)">
       <div class="conf-name"><span class="item-cod">${_esc(it.cod)}</span> ${_esc(it.nome)}${it.extra?' <small style="color:#999">(extra)</small>':''}
         <div style="font-size:.76rem;color:#666;margin-top:2px">Solicitado: <b>${it.qty} ${_esc(it.un)}</b>${marcaTag}</div>
@@ -5455,8 +5548,11 @@ function renderConferencia(){
           <span style="font-size:.72rem;color:#555;font-weight:700">Qtd conferida:</span>
           <input type="number" min="0" step="0.01" value="${qtdVal}" oninput="confSetQtd('${it.key}',this.value)" style="width:78px;padding:4px 6px;border:2px solid #c5cae9;border-radius:8px;font-size:.82rem;font-weight:700">
           <span style="font-size:.72rem;color:#555">${_esc(it.un)}</span>
-        </div>${mot}</div>
-      <span class="conf-st ${cls}">${lbl}</span>
+        </div>${mot}${div?'<div style="font-size:.74rem;color:#c62828;font-weight:800;margin-top:3px">↩️ Marcado como NÃO VEIO — será devolvido ao separador</div>':''}</div>
+      <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+        <span class="conf-st ${cls}">${lbl}</span>
+        <button class="conf-div-btn ${div?'active':''}" onclick="confMarcarDivergencia('${it.key}')">↩️ Não veio</button>
+      </div>
     </div>`;
   }).join('');
   const hora = req.timestamp ? new Date(req.timestamp).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
@@ -5472,10 +5568,12 @@ function renderConferencia(){
       🔍 Confira item por item o que foi <b>atendido</b> e o que <b>não foi</b> (com o motivo). Informe a <b>quantidade conferida</b> e marque o <b>OK</b> em cada item. Ao concluir, a requisição entra no rastreamento como <b>CONFERIDO</b>.
     </div>
     <div id="confItems">${rows||'<div class="empty"><p>Sem itens</p></div>'}</div>
+    ${_confDivergencias().length ? `<div style="background:#fff5f5;border:1px solid #ffcdd2;border-radius:10px;padding:10px 12px;font-size:.82rem;color:#b71c1c;margin:10px 0"><b>↩️ ${_confDivergencias().length} item(ns) marcado(s) como NÃO VEIO</b><br>Toque em “Devolver ao separador” para enviar a lista de volta e reabrir a separação.</div>` : ''}
     <label class="conf-check-all"><input type="checkbox" id="confCheckAll" onchange="confMarcarTudo(this.checked)"> Confirmo que conferi todos os itens desta requisição</label>
     ${jaConf?`<div style="background:#e8f5e9;border-radius:10px;padding:10px;font-size:.8rem;color:#2e7d32;margin-bottom:10px">✅ Conferência já concluída por <b>${_esc(req.conferencia.por||'—')}</b> em ${req.conferencia.ts?new Date(req.conferencia.ts).toLocaleString('pt-BR'):'—'}.</div>`:''}
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
       <button class="btn btn-secondary" style="flex:1" onclick="gerarEspelhoRequisicao('${reqId}')">📄 Baixar Espelho</button>
+      ${!jaConf && _confDivergencias().length ? `<button class="btn" style="flex:1;background:#ad1457;color:#fff" onclick="enviarDivergenciasSeparador()">↩️ Devolver ao separador (${_confDivergencias().length})</button>` : ''}
       ${jaConf?`<button class="btn btn-primary" style="flex:1" onclick="gerarRelatorioConferencia('${reqId}')">📄 Relatório de Conferência</button>`
              :`<button class="btn btn-success" style="flex:1" id="btnConcluirConf" onclick="concluirConferencia()">✅ Concluir Conferência (CONFERIDO)</button>`}
     </div>
@@ -5946,6 +6044,303 @@ setInterval(() => { if(navigator.onLine !== false) verificarAtualizacaoAgora(); 
 document.addEventListener('visibilitychange', () => {
   if(document.visibilityState === 'visible'){ atualizarStatusConexao(); if(navigator.onLine !== false) verificarAtualizacaoAgora(); }
 });
+
+// ================================================================
+// 🔔 CENTRAL DE ALERTAS: PERMISSÃO, SOM, VIBRAÇÃO E NOTIFICAÇÃO
+// ================================================================
+const ALERTAS_LS = 'reqElton_alertas_ok';
+function alertasAtivosLocal(){ try{ return localStorage.getItem(ALERTAS_LS)==='1'; }catch(e){ return false; } }
+function permissoesOk(){ try{ return ('Notification' in window) && Notification.permission==='granted' && alertasAtivosLocal(); }catch(e){ return false; } }
+function atualizarBtnAlertas(){
+  const btn=document.getElementById('ativarAlertasBtn');
+  const area=document.getElementById('alertaPermissaoArea');
+  if(!usuarioAtual){ if(btn) btn.style.display='none'; if(area) area.innerHTML=''; return; }
+  const ok=permissoesOk();
+  if(btn){
+    btn.style.display='flex';
+    if(ok){ btn.textContent='🔔'; btn.classList.remove('precisa'); btn.title='Alertas ativados (som, vibração e notificação)'; }
+    else { btn.textContent='🔕'; btn.classList.add('precisa'); btn.title='Toque para ATIVAR os alertas (som, vibração e notificação)'; }
+  }
+  if(area){
+    area.innerHTML = ok ? '' : `<div class="alertas-off-banner"><span>🔕 <b>Ative os alertas neste aparelho</b> para receber som, vibração e notificação das requisições, conferências e do fechamento do estoque.</span><button onclick="ativarAlertasApp()">🔔 ATIVAR</button></div>`;
+  }
+}
+function _notifFallback(titulo, corpo){ try{ new Notification(titulo,{body:corpo, icon:'icons/icon-192.png'}); }catch(e){} }
+function notificarDispositivo(titulo, corpo, tag, extra){
+  try{
+    if(!('Notification' in window) || Notification.permission!=='granted') return;
+    const opts = Object.assign({ body: corpo||'', icon:'icons/icon-192.png', badge:'icons/icon-192.png', tag: tag||'reqelton', renotify:true, requireInteraction:true, data:{ts:Date.now()} }, extra||{});
+    if(navigator.serviceWorker && navigator.serviceWorker.getRegistration){
+      navigator.serviceWorker.getRegistration().then(reg=>{
+        if(reg && reg.showNotification) reg.showNotification(titulo, opts).catch(()=>_notifFallback(titulo,corpo));
+        else _notifFallback(titulo,corpo);
+      }).catch(()=>_notifFallback(titulo,corpo));
+    } else _notifFallback(titulo,corpo);
+  }catch(e){}
+}
+function ativarAlertasApp(){
+  const ctx=_getACtx(); if(ctx && ctx.state==='suspended') ctx.resume().catch(()=>{});
+  try{ navigator.vibrate && navigator.vibrate([300,120,300]); }catch(e){}
+  if(!('Notification' in window)){
+    try{ localStorage.setItem(ALERTAS_LS,'1'); }catch(e){}
+    atualizarBtnAlertas(); tocarSom('urgente');
+    toast('🔔 Som e vibração ativados! (Este aparelho não suporta notificação de sistema)',5000,'success');
+    return;
+  }
+  if(Notification.permission==='granted'){
+    try{ localStorage.setItem(ALERTAS_LS,'1'); }catch(e){}
+    atualizarBtnAlertas(); tocarSom('urgente');
+    notificarDispositivo('🔔 Alertas ativados — Requisição Elton','Você receberá avisos de requisições, conferência e fechamento de estoque com som e vibração.','ativacao');
+    toast('✅ Alertas ativados! Som, vibração e notificação liberados.',4500,'success');
+    return;
+  }
+  if(Notification.permission==='denied'){
+    toast('⚠️ Notificações bloqueadas. Abra as configurações do navegador/app e permita notificações para este site.',7000,'error');
+    return;
+  }
+  Notification.requestPermission().then(p=>{
+    if(p==='granted'){
+      try{ localStorage.setItem(ALERTAS_LS,'1'); }catch(e){}
+      atualizarBtnAlertas(); tocarSom('urgente');
+      notificarDispositivo('🔔 Alertas ativados — Requisição Elton','Você receberá avisos com som e vibração.','ativacao');
+      toast('✅ Alertas ativados!',4500,'success');
+    } else {
+      toast('⚠️ Permissão de notificação não concedida. O som e a vibração ainda funcionam com o app aberto.',6500,'error');
+    }
+  }).catch(()=>{});
+}
+
+// ================================================================
+// 📣 NOTIFICAÇÕES DIRECIONADAS (devolução não retirado, divergência, avisos)
+// ================================================================
+let _notifOperadorVistas = new Set();
+function escutarNotificacoesOperador(){
+  if(!db) return;
+  db.ref('notificacoesOperador').orderByChild('ts').limitToLast(40).on('value', snap=>{
+    const data = snap.val()||{};
+    const lista = Object.entries(data).map(([id,n])=>({id,...n})).sort((a,b)=>(a.ts||0)-(b.ts||0));
+    if(!window._notifOperadorIniciado){ window._notifOperadorIniciado=true; lista.forEach(n=>_notifOperadorVistas.add(n.id)); return; }
+    lista.forEach(n=>{
+      if(_notifOperadorVistas.has(n.id)) return;
+      _notifOperadorVistas.add(n.id);
+      if(!_notifParaMim(n)) return;
+      if(Date.now()-(n.ts||0) > 180000) return;
+      _mostrarAlertaOperador(n);
+    });
+  });
+}
+function _notifParaMim(n){
+  const para = n.para || 'TODOS';
+  if(para==='TODOS') return true;
+  if(para==='GESTAO') return !!isMaster;
+  if(para===setorUsuario) return true;
+  if(normalizarNome(para)===normalizarNome(usuarioAtual||'')) return true;
+  return false;
+}
+function _mostrarAlertaOperador(n){
+  try{
+    const t=document.getElementById('notifTitle'); const i=document.getElementById('notifIcon');
+    if(i) i.textContent=n.icone||'🔔';
+    if(t) t.textContent=n.titulo||'Novo alerta';
+    const b=document.getElementById('notifBody'); if(b) b.innerHTML=`<div style="font-size:.9rem;line-height:1.65;color:#222">${n.corpo||''}</div>`;
+    const btn=document.getElementById('notifBtnPrimary'); if(btn) btn.textContent=n.btn||'OK';
+    document.getElementById('notifOverlay').classList.add('show');
+  }catch(e){}
+  tocarSom(n.som||'urgente'); animarSino();
+  try{ navigator.vibrate && navigator.vibrate(n.vibrar||[400,150,400,150,700]); }catch(e){}
+  notificarDispositivo(n.titulo||'Requisição Elton', (n.corpo||'').replace(/<[^>]+>/g,' '), 'notif-'+n.id);
+  addNotifLocal({tipo:n.tipo||'urgente', titulo:n.titulo||'Alerta', corpo:n.corpo||'', ts:n.ts||Date.now()});
+}
+function enviarNotificacaoOperador(dados){
+  if(!db) return;
+  const payload = Object.assign({ts:Date.now(), por:usuarioAtual||''}, dados||{});
+  try{ db.ref('notificacoesOperador').push(payload).catch(()=>{}); }catch(e){}
+}
+
+// ================================================================
+// ⏰ FECHAMENTO DE ESTOQUE (16:30) — ALERTA AUTOMÁTICO PARA TODOS
+// ================================================================
+let _fechCfg = {ativo:false, hora:'16:30', antecedenciaMin:10};
+let _fechTimer = null;
+let _fechSomTimer = null;
+function escutarFechamentoEstoque(){
+  if(!db) return;
+  db.ref('config/fechamentoEstoque').on('value', snap=>{
+    const v=snap.val();
+    if(v===null || v===undefined){
+      // Padrão de fábrica: alerta ATIVO às 16:30, avisando 10 min antes
+      _fechCfg = {ativo:true, hora:'16:30', antecedenciaMin:10};
+    } else {
+      _fechCfg = {ativo:!!v.ativo, hora:(v.hora||'16:30'), antecedenciaMin:(v.antecedenciaMin!==undefined?parseInt(v.antecedenciaMin):10)};
+    }
+    const a=document.getElementById('cfgFechAtivo'); if(a) a.checked=_fechCfg.ativo;
+    const h=document.getElementById('cfgFechHora'); if(h) h.value=_fechCfg.hora;
+    const m=document.getElementById('cfgFechAntecedencia'); if(m) m.value=_fechCfg.antecedenciaMin;
+    atualizarCfgFechStatus();
+  });
+}
+function _hojeKey(){ const d=new Date(); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
+function _fechFlags(){ try{ return JSON.parse(localStorage.getItem('reqElton_fechFlags')||'{}'); }catch(e){ return {}; } }
+function _setFechFlag(k){ const f=_fechFlags(); f[k]=true; try{ localStorage.setItem('reqElton_fechFlags',JSON.stringify(f)); }catch(e){} }
+function verificarFechamentoEstoque(){
+  if(!usuarioAtual || isMaster) return;
+  if(!_fechCfg || !_fechCfg.ativo) return;
+  const m = /^(\d{1,2}):(\d{2})$/.exec(_fechCfg.hora||'');
+  if(!m) return;
+  const now=new Date();
+  const alvo=new Date(now.getFullYear(),now.getMonth(),now.getDate(),parseInt(m[1]),parseInt(m[2]),0,0);
+  const diffMin=(alvo-now)/60000;
+  const hoje=_hojeKey();
+  if(diffMin>0 && diffMin<=_fechCfg.antecedenciaMin){
+    if(!_fechFlags()['aviso_'+hoje]){ _setFechFlag('aviso_'+hoje); _dispararFechamento('aviso', Math.max(1,Math.round(diffMin))); }
+  }
+  if(diffMin<=0 && diffMin>-15){
+    if(!_fechFlags()['fechado_'+hoje]){ _setFechFlag('fechado_'+hoje); _dispararFechamento('fechado',0); }
+  }
+}
+function _dispararFechamento(tipo, min){
+  const ov=document.getElementById('fechamentoAlerta'); if(!ov) return;
+  const emo=document.getElementById('fxEmoji'), tit=document.getElementById('fxTitulo'), txt=document.getElementById('fxTexto');
+  if(tipo==='aviso'){
+    if(emo) emo.textContent='⏰';
+    if(tit) tit.textContent='ESTOQUE FINALIZANDO';
+    if(txt) txt.innerHTML=`Faltam aproximadamente <b>${min} minuto${min!==1?'s':''}</b> para o fechamento das atividades do estoque (<b>${_fechCfg.hora}</b>).<br><br>Finalize suas requisições e conferências agora.`;
+  } else {
+    if(emo) emo.textContent='🔒';
+    if(tit) tit.textContent='ESTOQUE FINALIZADO';
+    if(txt) txt.innerHTML=`As atividades do estoque foram encerradas às <b>${_fechCfg.hora}</b>.<br><br>As requisições voltam a funcionar no próximo período.`;
+  }
+  ov.classList.add('show');
+  tocarSom('urgente');
+  try{ navigator.vibrate && navigator.vibrate([500,200,500,200,900]); }catch(e){}
+  notificarDispositivo(tipo==='aviso'?'⏰ Estoque finalizando':'🔒 Estoque finalizado', (txt&&txt.textContent)||'', 'fechamento-'+tipo+'-'+_hojeKey());
+  addNotifLocal({tipo:'urgente', titulo:tipo==='aviso'?'⏰ Estoque finalizando':'🔒 Estoque finalizado', corpo:(txt&&txt.textContent)||'', ts:Date.now()});
+  if(_fechSomTimer) clearInterval(_fechSomTimer);
+  _fechSomTimer=setInterval(()=>{ tocarSom('urgente'); try{ navigator.vibrate && navigator.vibrate([400,150,400]); }catch(e){} }, 8000);
+  setTimeout(()=>{ if(_fechSomTimer){ clearInterval(_fechSomTimer); _fechSomTimer=null; } }, 60000);
+}
+function fecharFechamentoAlerta(){ const ov=document.getElementById('fechamentoAlerta'); if(ov) ov.classList.remove('show'); if(_fechSomTimer){ clearInterval(_fechSomTimer); _fechSomTimer=null; } }
+function salvarFechamentoEstoque(){
+  const ativo=!!document.getElementById('cfgFechAtivo')?.checked;
+  const hora=(document.getElementById('cfgFechHora')?.value||'16:30');
+  const antecedenciaMin=parseInt(document.getElementById('cfgFechAntecedencia')?.value||'10')||10;
+  if(!db){ toast('Firebase não conectado'); return; }
+  db.ref('config/fechamentoEstoque').set({ativo, hora, antecedenciaMin, por:usuarioAtual, ts:Date.now()})
+    .then(()=>{ _fechCfg={ativo,hora,antecedenciaMin}; atualizarCfgFechStatus(); toast('✅ Configuração salva'); })
+    .catch(e=>toast('Erro: '+e.message));
+}
+function atualizarCfgFechStatus(){
+  const el=document.getElementById('cfgFechStatus'); if(!el) return;
+  el.innerHTML = _fechCfg.ativo
+    ? `<span style="color:#2e7d32;font-weight:800">🟢 Ativo — alerta às ${_fechCfg.hora} (aviso ${_fechCfg.antecedenciaMin} min antes)</span>`
+    : '<span style="color:#c62828;font-weight:800">🔴 Desativado</span>';
+}
+function testarAlertaFechamento(){ _dispararFechamento('aviso', _fechCfg.antecedenciaMin||10); }
+function avisarFechamentoAgora(){
+  if(!db){ toast('Firebase não conectado'); return; }
+  const hora=_fechCfg.hora||'16:30';
+  enviarNotificacaoOperador({para:'TODOS', tipo:'urgente', icone:'⏰', titulo:'⏰ FECHAMENTO DE ESTOQUE', corpo:`Atenção: as atividades do estoque serão finalizadas às <b>${hora}</b>. Finalize suas requisições e conferências.`, btn:'OK', vibrar:[500,200,500,200,900]});
+  toast('📢 Aviso enviado a todos os operadores conectados');
+}
+
+// ================================================================
+// ↩️ DEVOLUÇÃO — NÃO RETIRADO (master / separação e logística)
+// ================================================================
+let _devNrReqId=null;
+function abrirDevolucaoNaoRetirado(reqId){
+  if(!isMaster){ toast('Somente a gestão pode registrar devolução'); return; }
+  const req=reqsSnapshot[reqId]; if(!req){ toast('Requisição não encontrada'); return; }
+  _devNrReqId=reqId;
+  const itens=_reqAllItems(req).filter(it=>it.status==='atendido');
+  const hora=req.timestamp?new Date(req.timestamp).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
+  const rows = itens.length ? itens.map(it=>`<label class="dev-nr-item">
+      <input type="checkbox" data-devkey="${it.key}" data-devcod="${_esc(it.cod)}" data-devnome="${_esc(it.nome)}" data-devqty="${it.qty}" data-devu="${_esc(it.un)}" checked>
+      <span class="item-cod">${_esc(it.cod)}</span>
+      <span style="flex:1">${_esc(it.nome)}</span>
+      <b>${it.qty} ${_esc(it.un)}</b>
+    </label>`).join('') : '<div class="empty" style="padding:14px"><p>Nenhum item atendido para devolver.</p></div>';
+  document.getElementById('devNrBody').innerHTML=`
+    <div style="font-size:.84rem;color:#555;margin-bottom:10px">📦 <b>${_esc(_setorLabel(req))}</b> — ${_esc(req.requisitante)} · 📅 ${hora}</div>
+    <div style="background:#fff8e1;border:1px solid #ffe0a3;border-radius:10px;padding:10px 12px;font-size:.8rem;color:#8a5a00;margin-bottom:10px">
+      ↩️ Registre a <b>devolução de itens não retirados</b>. Os itens selecionados voltam ao estoque e o requisitante recebe um alerta imediato. A requisição é marcada como <b>NÃO RETIRADO</b>.
+    </div>
+    <div style="max-height:46vh;overflow:auto">${rows}</div>
+    <div class="form-group" style="margin-top:12px"><label>Observação (opcional)</label>
+      <input type="text" id="devNrObs" placeholder="Ex: não foi retirado no prazo" style="width:100%;padding:10px;border:2px solid var(--border);border-radius:8px">
+    </div>
+    <button class="btn btn-block" style="background:#ad1457;color:#fff;font-weight:800;margin-top:8px" onclick="confirmarDevolucaoNaoRetirado()">↩️ Confirmar Devolução Não Retirado</button>
+  `;
+  openModal('modalDevNaoRetirado');
+}
+function confirmarDevolucaoNaoRetirado(){
+  const reqId=_devNrReqId; const req=reqsSnapshot[reqId]; if(!req) return;
+  const checks=[...document.querySelectorAll('#devNrBody input[type=checkbox]')].filter(c=>c.checked);
+  if(!checks.length){ toast('⚠️ Selecione ao menos um item'); return; }
+  const itens={}, unidades={}, itensInfo=[];
+  checks.forEach(c=>{ const k=c.getAttribute('data-devkey'); const q=parseFloat(c.getAttribute('data-devqty'))||0; itens[k]=q; unidades[k]=c.getAttribute('data-devu')||'UN'; itensInfo.push({cod:c.getAttribute('data-devcod'), nome:c.getAttribute('data-devnome'), qty:q, un:unidades[k]}); });
+  const obs=(document.getElementById('devNrObs')?.value||'').trim();
+  const payload={setor:req.setor, requisitante:req.requisitante, origem:'nao_retirado', reqId, itens, unidades, extras:[], motivo:'NÃO RETIRADO', obs, timestamp:Date.now(), data:new Date().toLocaleDateString('pt-BR'), hora:new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}), status:'recebido', por:usuarioAtual};
+  const novHist=[...(req.trackHistory||[]), {status:'nao_retirado', ts:Date.now(), por:usuarioAtual, devolucao:true}];
+  const updates={};
+  updates['requisicoes/'+reqId+'/trackStatus']='nao_retirado';
+  updates['requisicoes/'+reqId+'/trackHistory']=novHist;
+  updates['requisicoes/'+reqId+'/conferenciaPendente']=false;
+  updates['requisicoes/'+reqId+'/naoRetirado']={por:usuarioAtual, ts:Date.now(), obs, itens:itensInfo};
+  const concluir=()=>{
+    closeModal('modalDevNaoRetirado'); _devNrReqId=null;
+    toast('↩️ Devolução registrada. Requisição marcada como NÃO RETIRADO.',4500,'success');
+    renderMasterReqs();
+  };
+  const enviar=()=>{
+    try{ db.ref('devolucoes').push(payload).catch(()=>{}); }catch(e){}
+    enviarNotificacaoOperador({para:req.requisitante||'TODOS', setor:req.setor, tipo:'urgente', icone:'↩️', titulo:'↩️ Requisição NÃO RETIRADA', corpo:`Sua requisição de <b>${_esc(req.setor)}</b> não foi retirada e os itens separados foram <b>devolvidos ao estoque</b>.${obs?'<br>Obs: '+_esc(obs):''}<br><br>Se ainda precisar, faça uma nova requisição.`, btn:'📬 Ver minhas requisições', vibrar:[400,150,400,150,800]});
+  };
+  if(db && podeEnviar()){
+    db.ref().update(updates).then(()=>{ enviar(); concluir(); }).catch(e=>toast('Erro: '+e.message,4000,'error'));
+  } else {
+    reqsSnapshot[reqId]=Object.assign({},req,{trackStatus:'nao_retirado',trackHistory:novHist,conferenciaPendente:false});
+    try{ cacheSnap('reqs',reqsSnapshot); }catch(e){}
+    if(db){ Object.entries(updates).forEach(([p,v])=>enfileirarOperacao(p,v,{},'set')); }
+    enviar(); concluir();
+  }
+}
+
+// ================================================================
+// ↩️ DIVERGÊNCIAS NA CONFERÊNCIA — DEVOLVER AO SEPARADOR
+// ================================================================
+function confMarcarDivergencia(key){
+  if(!window._confDiv) window._confDiv={};
+  window._confDiv[key]=!window._confDiv[key];
+  renderConferencia();
+}
+function _confDivergencias(){ const d=window._confDiv||{}; return Object.keys(d).filter(k=>d[k]); }
+function enviarDivergenciasSeparador(){
+  const reqId=_confReqId; const req=reqsSnapshot[reqId]; if(!req) return;
+  const chaves=_confDivergencias();
+  if(!chaves.length){ toast('⚠️ Marque ao menos um item como "Não veio"'); return; }
+  const itens=_reqAllItems(req).filter(it=>chaves.includes(it.key));
+  if(!itens.length) return;
+  if(!confirm(`Enviar ${itens.length} item(ns) de volta ao separador?`)) return;
+  const divergencia={reqId, setor:req.setor, requisitante:req.requisitante, por:usuarioAtual, ts:Date.now(), itens:itens.map(it=>({key:it.key,cod:it.cod,nome:it.nome,qty:it.qty,un:it.un}))};
+  const updates={};
+  updates['requisicoes/'+reqId+'/divergencias']=divergencia;
+  itens.forEach(it=>{
+    updates['requisicoes/'+reqId+'/baixas/'+it.key+'/status']='nao_atendido';
+    updates['requisicoes/'+reqId+'/baixas/'+it.key+'/motivo']='NÃO ENTREGUE (CONFERÊNCIA)';
+  });
+  updates['requisicoes/'+reqId+'/trackStatus']='separacao';
+  updates['requisicoes/'+reqId+'/conferenciaPendente']=false;
+  const concluir=()=>{
+    closeModal('modalConferencia');
+    pararAlarmeRetirada();
+    enviarNotificacaoOperador({para:'GESTAO', setor:req.setor, tipo:'urgente', icone:'↩️', titulo:'↩️ DIVERGÊNCIA NA CONFERÊNCIA', corpo:`Setor <b>${_esc(req.setor)}</b> (${_esc(req.requisitante||'')}) devolveu <b>${itens.length} item(ns)</b> que não foram entregues:<br>${itens.map(it=>'• '+_esc(it.cod)+' '+_esc(it.nome)).join('<br>')}`, btn:'📋 Ver requisições', vibrar:[500,200,500,200,900]});
+    if(typeof renderFuncReqStatus==='function') renderFuncReqStatus();
+    atualizarBloqueioRequisicao();
+    toast('↩️ Divergências enviadas ao separador. Requisição voltou para SEPARAÇÃO.',5000,'success');
+  };
+  if(db && podeEnviar()){ db.ref().update(updates).then(concluir).catch(e=>toast('Erro: '+e.message,4000,'error')); }
+  else { Object.entries(updates).forEach(([p,v])=>enfileirarOperacao(p,v,{},'set')); concluir(); }
+}
 
 // Escuta versão do app / force update assim que Firebase iniciar
 setTimeout(() => { if (db) { escutarVersaoApp(); escutarForceUpdate(); escutarBloqueioGeral(); } }, 2000);
