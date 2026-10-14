@@ -25,6 +25,7 @@
 <!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-messaging-compat.js"></script>
 
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -1461,6 +1462,9 @@ function setLoginMode(modo){
   if (lf) lf.style.display = modo==='logistica' ? 'block' : 'none';
 }
 
+// 🔑 Chave pública VAPID (Web Push) — Firebase Console > Configurações do projeto > Cloud Messaging
+const FCM_VAPID_KEY = 'BMfNpUZ0iaFXig4sY9_n4BE66RzLj9Bj1OZgtuIK4sRVITGXwfU30_hAj0mQapaJxmwPmflyP4wdUOUG1ZhoCTw';
+
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyBQ70lgKcnXly1a940m5W71MRnjDd57pTE",
   authDomain: "requisicao-elton.firebaseapp.com",
@@ -1737,6 +1741,7 @@ function entrar(nome, setor, papel) {
   // 🔔 Alertas: permissão, notificações direcionadas e fechamento de estoque
   atualizarBtnAlertas();
   if (db) { escutarNotificacoesOperador(); escutarFechamentoEstoque(); }
+  setTimeout(iniciarFCM, 1500);
   if (_fechTimer) clearInterval(_fechTimer);
   _fechTimer = setInterval(verificarFechamentoEstoque, 30000);
   setTimeout(verificarFechamentoEstoque, 4000);
@@ -1764,6 +1769,7 @@ function logout() {
   if (db) { db.ref('requisicoes').off(); db.ref('contagens').off(); db.ref('devolucoes').off(); db.ref('mensagens').off(); db.ref('notificacoesOperador').off(); db.ref('config/fechamentoEstoque').off(); }
   pararAlarmeRetirada();
   if (_fechTimer) { clearInterval(_fechTimer); _fechTimer = null; }
+  try { removerFcmToken(); } catch(e) {}
   try { fecharFechamentoAlerta(); } catch(e) {}
   window._notifOperadorIniciado = false;
   try { _notifOperadorVistas.clear(); } catch(e) {}
@@ -4843,7 +4849,7 @@ function escutarProdutosExtra() {
 // ================================================================
 // SISTEMA DE VERSÃO / ATUALIZAÇÃO DO APP
 // ================================================================
-const APP_VERSAO_LOCAL = '3.8.0'; // + devolução não retirado, alertas com som/vibração/notificação, fechamento de estoque 16:30 e devolução de divergências ao separador
+const APP_VERSAO_LOCAL = '3.8.1'; // + registro de push FCM (Web Push) para notificar com o app fechado
 const URL_CORRETA = 'https://controladoriaamano-prog.github.io/requisicao-elton';
 let appVersaoAnterior = null;
 
@@ -6091,6 +6097,7 @@ function ativarAlertasApp(){
     try{ localStorage.setItem(ALERTAS_LS,'1'); }catch(e){}
     atualizarBtnAlertas(); tocarSom('urgente');
     notificarDispositivo('🔔 Alertas ativados — Requisição Elton','Você receberá avisos de requisições, conferência e fechamento de estoque com som e vibração.','ativacao');
+    iniciarFCM();
     toast('✅ Alertas ativados! Som, vibração e notificação liberados.',4500,'success');
     return;
   }
@@ -6103,11 +6110,47 @@ function ativarAlertasApp(){
       try{ localStorage.setItem(ALERTAS_LS,'1'); }catch(e){}
       atualizarBtnAlertas(); tocarSom('urgente');
       notificarDispositivo('🔔 Alertas ativados — Requisição Elton','Você receberá avisos com som e vibração.','ativacao');
+      iniciarFCM();
       toast('✅ Alertas ativados!',4500,'success');
     } else {
       toast('⚠️ Permissão de notificação não concedida. O som e a vibração ainda funcionam com o app aberto.',6500,'error');
     }
   }).catch(()=>{});
+}
+
+// ================================================================
+// 🔔 FCM / WEB PUSH — registra o aparelho para acordar com o app FECHADO
+// ================================================================
+let _fcmToken = null;
+let _fcmReg = null;
+let _fcmIniciado = false;
+function _fcmUserKey(){ return normalizarNome(usuarioAtual||'').replace(/[^a-z0-9]+/g,'_') || 'sem_nome'; }
+async function salvarFcmToken(token){
+  if(!db || !token || !usuarioAtual) return;
+  try{
+    await db.ref('fcmTokens/'+_fcmUserKey()).set({token, nome:usuarioAtual||'', setor:setorUsuario||'', isMaster:!!isMaster, isLogistica:!!isLogistica, ts:Date.now()});
+  }catch(e){}
+}
+async function iniciarFCM(){
+  try{
+    if(_fcmIniciado || !db || !usuarioAtual) return;
+    if(!('Notification' in window) || Notification.permission!=='granted') return;
+    if(!(firebase && firebase.messaging)) return;
+    _fcmIniciado = true;
+    // Registra o SW do FCM em escopo próprio para NÃO conflitar com o sw.js do app
+    _fcmReg = await navigator.serviceWorker.register('./firebase-messaging-sw.js', { scope: './firebase-push/' }).catch(()=>null);
+    const messaging = firebase.messaging();
+    _fcmToken = await messaging.getToken({ vapidKey: FCM_VAPID_KEY, serviceWorkerRegistration: _fcmReg || undefined });
+    if(_fcmToken) await salvarFcmToken(_fcmToken);
+    // Com o app aberto o popup interno já é disparado pelo listener do Firebase RTDB,
+    // então aqui apenas registramos o token (evita notificação duplicada).
+    messaging.onMessage(function(payload){ /* tratado pelo listener RTDB */ });
+  }catch(e){ _fcmIniciado=false; console.warn('[FCM] falha ao registrar:', e && e.message); }
+}
+function removerFcmToken(){
+  try{ if(db && usuarioAtual) db.ref('fcmTokens/'+_fcmUserKey()).remove().catch(()=>{}); }catch(e){}
+  try{ if(firebase && firebase.messaging) firebase.messaging().deleteToken().catch(()=>{}); }catch(e){}
+  _fcmToken=null; _fcmIniciado=false;
 }
 
 // ================================================================
