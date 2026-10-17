@@ -909,6 +909,34 @@ body.tem-setor .req-card{border-left-color:var(--setor-cor,#1a237e)!important}
     </div>
   </div>
 
+  <div class="card" style="border:2px solid #6a1b9a">
+    <div class="card-header" style="background:linear-gradient(135deg,#6a1b9a,#8e24aa);color:#fff">🚨 MODO EMERGENCIAL (AVISO AUTOMÁTICO)</div>
+    <div class="modal-body">
+      <p style="font-size:.84rem;line-height:1.6;margin-bottom:10px">Quando ativo, o aviso animado do Elton aparece para quem abrir a requisição nos horários abaixo. Você define tudo aqui.</p>
+      <div class="form-group" style="margin-bottom:12px">
+        <label style="display:flex;align-items:center;gap:8px;text-transform:none;font-weight:800"><input type="checkbox" id="cfgEmgAtivo" style="width:auto"> Modo emergencial ATIVO</label>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr;gap:10px">
+        <div style="background:#f3e5f5;border-radius:10px;padding:10px">
+          <label style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:.82rem;text-transform:none"><input type="checkbox" id="cfgEmgDomAtivo" style="width:auto"> <b>Domingo</b></label>
+          <label style="display:flex;align-items:center;gap:8px;margin-top:6px;font-size:.8rem;text-transform:none"><input type="checkbox" id="cfgEmgDomTodo" style="width:auto"> O dia todo</label>
+          <div style="margin-top:6px;font-size:.8rem">ou a partir de <input type="time" id="cfgEmgDomHora" value="00:00" style="padding:6px;border:2px solid var(--border);border-radius:8px"></div>
+        </div>
+        <div style="background:#f3e5f5;border-radius:10px;padding:10px">
+          <label style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:.82rem;text-transform:none"><input type="checkbox" id="cfgEmgSemAtivo" style="width:auto"> <b>Segunda a sexta</b></label>
+          <div style="margin-top:6px;font-size:.8rem">a partir de <input type="time" id="cfgEmgSemHora" value="15:40" style="padding:6px;border:2px solid var(--border);border-radius:8px"></div>
+        </div>
+        <div style="background:#f3e5f5;border-radius:10px;padding:10px">
+          <label style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:.82rem;text-transform:none"><input type="checkbox" id="cfgEmgSabAtivo" style="width:auto"> <b>Sábado</b></label>
+          <div style="margin-top:6px;font-size:.8rem">a partir de <input type="time" id="cfgEmgSabHora" value="11:50" style="padding:6px;border:2px solid var(--border);border-radius:8px"></div>
+        </div>
+      </div>
+      <div id="cfgEmgStatus" style="font-size:.82rem;margin:10px 0">Carregando...</div>
+      <button class="btn btn-success btn-block" onclick="salvarEmergencia()">💾 Salvar modo emergencial</button>
+      <button class="btn btn-secondary btn-block" style="margin-top:8px" onclick="testarEmergencia()">👀 Ver como fica neste aparelho</button>
+    </div>
+  </div>
+
   <div class="card">
     <div class="card-header">📝 MOTIVOS DE NÃO ATENDIMENTO</div>
     <div class="modal-body">
@@ -1861,7 +1889,7 @@ function entrar(nome, setor, papel) {
 
   // 🔔 Alertas: permissão, notificações direcionadas e fechamento de estoque
   atualizarBtnAlertas();
-  if (db) { escutarNotificacoesOperador(); escutarFechamentoEstoque(); }
+  if (db) { escutarNotificacoesOperador(); escutarFechamentoEstoque(); escutarEmergencia(); }
   setTimeout(iniciarFCM, 1500);
   if (_fechTimer) clearInterval(_fechTimer);
   _fechTimer = setInterval(verificarFechamentoEstoque, 30000);
@@ -1885,16 +1913,78 @@ function entrar(nome, setor, papel) {
 }
 
 // ================================================================
-// 🚨 MODO EMERGENCIAL — domingo (o dia todo), seg-sex após 15:40 e sáb após 11:50
+// 🚨 MODO EMERGENCIAL — horários configuráveis pelo master (Config → Modo Emergencial)
 // ================================================================
+let _emgCfg = {
+  ativo: true,
+  dom: { ativo: true, todoDia: true, hora: '00:00' },
+  sem: { ativo: true, hora: '15:40' },   // segunda a sexta
+  sab: { ativo: true, hora: '11:50' }    // sábado
+};
+function _emgHHMM(s){ const m=/^(\d{1,2}):(\d{2})$/.exec(s||''); return m ? (parseInt(m[1])*60+parseInt(m[2])) : 0; }
 function _modoEmergencial(d){
   d = d || new Date();
+  const c = _emgCfg || {};
+  if (c.ativo === false) return false;
   const dia = d.getDay(); // 0=domingo, 6=sábado
   const mins = d.getHours()*60 + d.getMinutes();
-  if (dia === 0) return true;                 // domingo (o dia inteiro)
-  if (dia === 6) return mins >= (11*60+50);   // sábado a partir de 11:50
-  return mins >= (15*60+40);                  // segunda a sexta a partir de 15:40
+  if (dia === 0) { const x = c.dom || {}; if (x.ativo === false) return false; return x.todoDia !== false ? true : mins >= _emgHHMM(x.hora || '00:00'); }
+  if (dia === 6) { const x = c.sab || {}; if (x.ativo === false) return false; return mins >= _emgHHMM(x.hora || '11:50'); }
+  const x = c.sem || {}; if (x.ativo === false) return false; return mins >= _emgHHMM(x.hora || '15:40');
 }
+
+// Carrega a configuração do modo emergencial (sincroniza em todos os aparelhos)
+function escutarEmergencia(){
+  if (!db) { atualizarCfgEmg(); return; }
+  db.ref('config/emergencia').on('value', snap => {
+    const v = snap.val();
+    if (v && typeof v === 'object') {
+      _emgCfg = {
+        ativo: v.ativo !== false,
+        dom: { ativo: !(v.dom && v.dom.ativo === false), todoDia: !(v.dom && v.dom.todoDia === false), hora: (v.dom && v.dom.hora) || '00:00' },
+        sem: { ativo: !(v.sem && v.sem.ativo === false), hora: (v.sem && v.sem.hora) || '15:40' },
+        sab: { ativo: !(v.sab && v.sab.ativo === false), hora: (v.sab && v.sab.hora) || '11:50' }
+      };
+    }
+    atualizarCfgEmg();
+    _aplicarSeloEmergencia();
+  });
+}
+function atualizarCfgEmg(){
+  const set=(id,val)=>{ const e=document.getElementById(id); if(e) e.checked=val; };
+  const val=(id,v)=>{ const e=document.getElementById(id); if(e) e.value=v; };
+  set('cfgEmgAtivo', _emgCfg.ativo !== false);
+  set('cfgEmgDomAtivo', _emgCfg.dom.ativo !== false);
+  set('cfgEmgDomTodo', _emgCfg.dom.todoDia !== false);
+  val('cfgEmgDomHora', _emgCfg.dom.hora || '00:00');
+  set('cfgEmgSemAtivo', _emgCfg.sem.ativo !== false);
+  val('cfgEmgSemHora', _emgCfg.sem.hora || '15:40');
+  set('cfgEmgSabAtivo', _emgCfg.sab.ativo !== false);
+  val('cfgEmgSabHora', _emgCfg.sab.hora || '11:50');
+  const st=document.getElementById('cfgEmgStatus');
+  if (!st) return;
+  if (_emgCfg.ativo === false) { st.innerHTML='<span style="color:#c62828;font-weight:800">🔴 Desativado</span>'; return; }
+  const p=[];
+  if (_emgCfg.dom.ativo !== false) p.push('Domingo ' + (_emgCfg.dom.todoDia !== false ? '(o dia todo)' : ('a partir de '+_emgCfg.dom.hora)));
+  if (_emgCfg.sem.ativo !== false) p.push('Seg–Sex a partir de '+_emgCfg.sem.hora);
+  if (_emgCfg.sab.ativo !== false) p.push('Sáb a partir de '+_emgCfg.sab.hora);
+  st.innerHTML='<span style="color:#2e7d32;font-weight:800">🟢 Ativo — '+p.join(' · ')+'</span>';
+}
+function salvarEmergencia(){
+  const cfg = {
+    ativo: !!document.getElementById('cfgEmgAtivo')?.checked,
+    dom: { ativo: !!document.getElementById('cfgEmgDomAtivo')?.checked, todoDia: !!document.getElementById('cfgEmgDomTodo')?.checked, hora: document.getElementById('cfgEmgDomHora')?.value || '00:00' },
+    sem: { ativo: !!document.getElementById('cfgEmgSemAtivo')?.checked, hora: document.getElementById('cfgEmgSemHora')?.value || '15:40' },
+    sab: { ativo: !!document.getElementById('cfgEmgSabAtivo')?.checked, hora: document.getElementById('cfgEmgSabHora')?.value || '11:50' },
+    por: usuarioAtual, ts: Date.now()
+  };
+  _emgCfg = cfg;
+  if (!db) { atualizarCfgEmg(); toast('⚠️ Firebase não conectado — salvo só neste aparelho'); return; }
+  db.ref('config/emergencia').set(cfg)
+    .then(()=>{ atualizarCfgEmg(); toast('✅ Modo emergencial salvo!', 3000, 'success'); })
+    .catch(e=>toast('Erro: '+e.message));
+}
+function testarEmergencia(){ mostrarEmergencia(true); }
 function _emgJaVista(){ try { return sessionStorage.getItem('emgVista') === '1'; } catch(e){ return false; } }
 function _marcarEmgVista(){ try { sessionStorage.setItem('emgVista','1'); } catch(e){} }
 
@@ -4889,7 +4979,7 @@ function showPage(id) {
   if (tb) tb.classList.add('active');
   if (id === 'master-estoque') loadMasterEstoque();
   if (id === 'recebimento') { limparRecebimento(); renderRecebimentosLocais(); }
-  if (id === 'master-config') { atualizarStats(); renderHistoricoLocal(); renderCfgEstoquista(); }
+  if (id === 'master-config') { atualizarStats(); renderHistoricoLocal(); renderCfgEstoquista(); atualizarCfgEmg(); }
   if (id === 'func-status') renderFuncReqStatus();
   if (id === 'func-req') _aplicarSeloEmergencia();
   if (id === 'master-produtos') renderMasterProdutos();
@@ -5054,7 +5144,7 @@ function escutarProdutosExtra() {
 // ================================================================
 // SISTEMA DE VERSÃO / ATUALIZAÇÃO DO APP
 // ================================================================
-const APP_VERSAO_LOCAL = '3.8.4'; // modo emergencial animado (domingo / após 15:40 seg-sex / após 11:50 sáb)
+const APP_VERSAO_LOCAL = '3.8.5'; // horários do modo emergencial configuráveis pelo master
 const URL_CORRETA = 'https://controladoriaamano-prog.github.io/requisicao-elton';
 let appVersaoAnterior = null;
 
