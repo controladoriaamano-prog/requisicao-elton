@@ -1005,7 +1005,7 @@ body.tem-setor .req-card{border-left-color:var(--setor-cor,#1a237e)!important}
   <div style="margin-top:8px">
     <div class="warn-banner">
       📦 <strong>Gerenciar Produtos por Setor</strong><br>
-      Adicione novos produtos diretamente aqui. O produto aparecerá imediatamente na lista de requisições do setor escolhido, <strong>sem precisar baixar um novo arquivo.</strong> Use o botão Aviso para notificar o setor.
+      Escolha o setor (ou <b>COZINHA · REFEITÓRIO</b>) para ver a lista. Apague um item com <b>❌ Remover</b> (só desta lista) ou <b>❌ TODOS</b> (de todos os setores). Para acrescentar, preencha os campos abaixo e marque <b>Aplicar em TODOS</b> se quiser em todos de uma vez.
     </div>
     <div class="card">
       <div class="card-header">➕ ADICIONAR NOVO PRODUTO</div>
@@ -1036,9 +1036,13 @@ body.tem-setor .req-card{border-left-color:var(--setor-cor,#1a237e)!important}
             <input type="text" id="prodNome" placeholder="Ex: AÇAÍ 1KG" style="width:100%;padding:8px;border:2px solid var(--border);border-radius:8px;font-size:.85rem">
           </div>
         </div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:.82rem;font-weight:700;margin:2px 0 12px;cursor:pointer">
+          <input type="checkbox" id="prodTodos" style="width:18px;height:18px;flex-shrink:0">
+          ➕ Aplicar em TODOS os setores e sub-setores (REFEITÓRIO incluído)
+        </label>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn btn-success" onclick="adicionarProduto()">✅ Adicionar Produto</button>
-          <button class="btn btn-accent" onclick="avisarNovoProduto()" title="Enviar aviso automático ao setor sobre novo produto">📢 Adicionar + Avisar Setor</button>
+          <button class="btn btn-success" onclick="adicionarProduto()">➕ Adicionar</button>
+          <button class="btn btn-accent" onclick="avisarNovoProduto()" title="Enviar aviso automático ao setor sobre novo produto">📢 Adicionar + Avisar</button>
         </div>
       </div>
     </div>
@@ -4803,10 +4807,11 @@ function renderMasterProdutos() {
     html += `<div class="cat-title" style="margin:8px 16px 4px;border-bottom:2px solid var(--primary);padding-bottom:4px">${cat.categoria}</div>`;
     itensFiltrados.forEach(it => {
       total++;
-      html += `<div class="item-row" style="padding:8px 16px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border)">
+      html += `<div class="item-row" style="padding:8px 16px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);flex-wrap:wrap">
         <span class="item-cod">${it.cod}</span>
-        <span class="item-name" style="flex:1;font-size:.85rem">${it.nome}</span>
-        <button onclick="removerProduto('${setor}','${cat.categoria}','${it.cod}','${it.nome.replace(/'/g,"\'")}')" style="background:none;border:none;color:#c62828;font-size:.8rem;cursor:pointer;padding:2px 6px;border-radius:4px;opacity:.6" title="Remover produto">🗑️</button>
+        <span class="item-name" style="flex:1;font-size:.85rem;min-width:120px">${it.nome}</span>
+        <button onclick="removerProduto('${setor}','${cat.categoria}','${it.cod}','${it.nome.replace(/'/g,"\'")}')" style="background:#ffebee;border:1px solid #ef9a9a;color:#c62828;font-size:.72rem;font-weight:800;cursor:pointer;padding:6px 10px;border-radius:8px;white-space:nowrap" title="Remover só desta lista">❌ Remover</button>
+        <button onclick="removerProdutoDeTodos('${it.cod}','${it.nome.replace(/'/g,"\'")}')" style="background:#fce4ec;border:1px solid #f48fb1;color:#ad1457;font-size:.72rem;font-weight:800;cursor:pointer;padding:6px 10px;border-radius:8px;white-space:nowrap" title="Remover de TODOS os setores">❌ TODOS</button>
       </div>`;
     });
   });
@@ -4819,35 +4824,29 @@ function adicionarProduto(enviarAviso_) {
   const cat = (document.getElementById('prodCat')?.value || '').trim().toUpperCase();
   const cod = (document.getElementById('prodCod')?.value || '').trim().toUpperCase();
   const nome = (document.getElementById('prodNome')?.value || '').trim().toUpperCase();
+  const todos = !!document.getElementById('prodTodos')?.checked;
   if (!setor) { toast('⚠️ Selecione o setor'); return; }
   if (!cat || !cod || !nome) { toast('⚠️ Preencha categoria, código e nome'); return; }
 
-  // Ensure the sector exists in DATA
-  if (!DATA[setor]) DATA[setor] = [];
-
-  // Find or create the category
-  let catObj = DATA[setor].find(c => c.categoria.toUpperCase() === cat);
-  if (!catObj) {
-    catObj = {categoria: cat, itens: []};
-    DATA[setor].push(catObj);
-  }
-
-  // Check if product already exists
-  const exists = catObj.itens.some(it => it.cod === cod && it.nome.toUpperCase() === nome);
-  if (exists) { toast('⚠️ Produto já existe nessa categoria'); return; }
-
-  catObj.itens.push({cod, nome});
-
-  // Also sync to Firebase for real-time updates across all sessions
-  if (db) {
-    db.ref('produtosExtra/' + setor).set(DATA[setor]).catch(()=>{});
-  }
+  // 🧩 "Aplicar em TODOS": grava a lista em cada setor + sub-setor com lista própria (REFEITÓRIO)
+  const alvos = todos ? Object.keys(DATA || {}) : [setor];
+  let adicionados = 0;
+  alvos.forEach(s => {
+    if (!DATA[s]) DATA[s] = [];
+    let catObj = DATA[s].find(c => c.categoria.toUpperCase() === cat);
+    if (!catObj) { catObj = {categoria: cat, itens: []}; DATA[s].push(catObj); }
+    if (catObj.itens.some(it => it.cod === cod && it.nome.toUpperCase() === nome)) return;
+    catObj.itens.push({cod, nome});
+    adicionados++;
+    if (db) db.ref('produtosExtra/' + s).set(DATA[s]).catch(()=>{});
+  });
 
   renderMasterProdutos();
   document.getElementById('prodCod').value = '';
   document.getElementById('prodNome').value = '';
 
-  toast('✅ Produto ' + nome + ' adicionado ao setor ' + setor + '!', 3000, 'success');
+  if (adicionados === 0) { toast('⚠️ Produto já existe ' + (todos ? 'em todos os setores' : 'nessa lista')); return; }
+  toast('✅ ' + nome + ' adicionado ' + (todos ? ('em ' + adicionados + ' lista(s)') : 'em ' + setor) + '!', 3000, 'success');
 
   if (enviarAviso_) {
     // Auto-send notification to sector
@@ -4855,12 +4854,12 @@ function adicionarProduto(enviarAviso_) {
       const aviso = {
         tipo: 'new-product',
         titulo: '🆕 Novo Produto Adicionado',
-        corpo: 'Produto <strong>' + nome + '</strong> (cód. ' + cod + ') foi adicionado ao setor ' + (setor === 'REFEITORIO' ? 'COZINHA · REFEITÓRIO' : setor) + '. Já disponível para requisição!',
-        destino: (setor === 'REFEITORIO' ? 'COZINHA' : setor),
+        corpo: 'Produto <strong>' + nome + '</strong> (cód. ' + cod + ') foi adicionado ' + (todos ? 'em <strong>todos os setores</strong>' : ('ao setor ' + (setor === 'REFEITORIO' ? 'COZINHA · REFEITÓRIO' : setor))) + '. Já disponível para requisição!',
+        destino: todos ? 'TODOS' : (setor === 'REFEITORIO' ? 'COZINHA' : setor),
         autor: usuarioAtual || 'Master',
         timestamp: Date.now()
       };
-      db.ref('avisos').push(aviso).then(() => toast('📢 Produto adicionado + aviso enviado ao setor ' + setor + '!', 3500, 'success'));
+      db.ref('avisos').push(aviso).then(() => toast('📢 Produto adicionado + aviso enviado!', 3500, 'success'));
     }
   }
 }
@@ -4870,13 +4869,29 @@ function avisarNovoProduto() {
 }
 
 function removerProduto(setor, cat, cod, nome) {
-  if (!confirm('Remover "' + nome + '" do setor ' + setor + '?')) return;
+  const label = setor === 'REFEITORIO' ? 'COZINHA · REFEITÓRIO' : setor;
+  if (!confirm('Remover "' + nome + '" (cód. ' + cod + ') da lista ' + label + '?\n\n(Use o botão ❌ TODOS se quiser apagar de todos os setores.)')) return;
   const catObj = (DATA[setor]||[]).find(c => c.categoria === cat);
   if (!catObj) return;
   catObj.itens = catObj.itens.filter(it => !(it.cod === cod && it.nome.toUpperCase() === nome.toUpperCase()));
+  DATA[setor] = (DATA[setor]||[]).filter(c => (c.itens||[]).length);
   if (db) db.ref('produtosExtra/' + setor).set(DATA[setor]).catch(()=>{});
   renderMasterProdutos();
-  toast('🗑️ Produto removido');
+  toast('🗑️ Removido de ' + label);
+}
+
+function removerProdutoDeTodos(cod, nome) {
+  const alvos = Object.keys(DATA||{}).filter(s => (DATA[s]||[]).some(c => (c.itens||[]).some(it => it.cod === cod && it.nome.toUpperCase() === nome.toUpperCase())));
+  if (!alvos.length) { toast('⚠️ Item não encontrado'); return; }
+  const nomes = alvos.map(a => a === 'REFEITORIO' ? 'COZINHA · REFEITÓRIO' : a).join(', ');
+  if (!confirm('Remover "' + nome + '" (cód. ' + cod + ') de TODOS os ' + alvos.length + ' setor(es)?\n\n' + nomes)) return;
+  alvos.forEach(s => {
+    (DATA[s]||[]).forEach(c => { c.itens = (c.itens||[]).filter(it => !(it.cod === cod && it.nome.toUpperCase() === nome.toUpperCase())); });
+    DATA[s] = (DATA[s]||[]).filter(c => (c.itens||[]).length);
+    if (db) db.ref('produtosExtra/' + s).set(DATA[s]).catch(()=>{});
+  });
+  renderMasterProdutos();
+  toast('🗑️ "' + nome + '" removido de ' + alvos.length + ' lista(s)');
 }
 
 function escutarProdutosExtra() {
@@ -4898,7 +4913,7 @@ function escutarProdutosExtra() {
 // ================================================================
 // SISTEMA DE VERSÃO / ATUALIZAÇÃO DO APP
 // ================================================================
-const APP_VERSAO_LOCAL = '3.8.2'; // sub-setor REFEITÓRIO da COZINHA com lista de itens própria
+const APP_VERSAO_LOCAL = '3.8.3'; // gestão de produtos com ❌ Remover / ❌ TODOS e ➕ Aplicar em TODOS
 const URL_CORRETA = 'https://controladoriaamano-prog.github.io/requisicao-elton';
 let appVersaoAnterior = null;
 
