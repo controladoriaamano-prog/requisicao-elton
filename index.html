@@ -1382,6 +1382,102 @@ body.tem-setor .req-card{border-left-color:var(--setor-cor,#1a237e)!important}
   <button onclick="fecharFechamentoAlerta()">✅ ENTENDI</button>
 </div></div>
 
+<!-- ===== 🚨 MODO EMERGENCIAL (domingo / após 15:40 seg-sex / após 11:50 sáb) ===== -->
+<style>
+.emg-overlay{position:fixed;inset:0;z-index:100000;display:none;align-items:center;justify-content:center;padding:16px;background:radial-gradient(circle at 50% 28%,rgba(74,20,140,.88),rgba(8,12,42,.94));overflow-y:auto}
+.emg-overlay.show{display:flex;animation:emgFade .3s ease}
+.emg-card{position:relative;max-width:470px;width:100%;margin:auto;border-radius:28px;padding:16px 18px 20px;background:linear-gradient(160deg,#6a1b9a,#8e24aa 42%,#ef6c00);box-shadow:0 26px 80px rgba(0,0,0,.6);border:3px solid rgba(255,255,255,.28);overflow:hidden;animation:emgPop .55s cubic-bezier(.16,1.3,.4,1)}
+.emg-card::before{content:"";position:absolute;inset:-40% -40% auto -40%;height:70%;background:radial-gradient(circle,rgba(255,255,255,.22),transparent 60%);pointer-events:none}
+.emg-sparkles{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:0}
+.emg-sparkles span{position:absolute;font-size:.95rem;opacity:.75;animation:emgFloat 3.2s ease-in-out infinite}
+.emg-sparkles span:nth-child(1){left:5%;top:13%}
+.emg-sparkles span:nth-child(2){right:6%;top:11%;animation-delay:.5s}
+.emg-sparkles span:nth-child(3){left:4%;bottom:12%;animation-delay:1s}
+.emg-sparkles span:nth-child(4){right:5%;bottom:11%;animation-delay:1.5s}
+.emg-sparkles span:nth-child(5){left:18%;top:2%;animation-delay:.8s}
+.emg-sparkles span:nth-child(6){right:20%;top:2%;animation-delay:1.2s}
+.emg-top,.emg-title,.emg-balao,.emg-btn{position:relative;z-index:2}
+.emg-top{display:flex;justify-content:center;margin:2px 0}
+.emg-boneco{animation:emgBounce 1.7s ease-in-out infinite}
+.emg-svg{display:block;filter:drop-shadow(0 12px 16px rgba(0,0,0,.38))}
+.emg-head{transform-box:fill-box;transform-origin:50% 100%;animation:emgTilt 2.6s ease-in-out infinite}
+.emg-arm-right{transform-box:fill-box;transform-origin:50% 4%;animation:emgWave .85s ease-in-out infinite}
+.emg-eye{transform-box:fill-box;transform-origin:50% 50%;animation:emgBlink 3.6s infinite}
+.emg-title{text-align:center;font-size:1.12rem;font-weight:900;letter-spacing:.5px;color:#fff;margin:2px 0 10px;text-shadow:0 2px 0 rgba(0,0,0,.25),0 0 22px rgba(255,214,0,.75);animation:emgGlow 1.8s ease-in-out infinite}
+.emg-balao{background:rgba(255,255,255,.97);border-radius:18px;padding:14px 15px;font-size:.86rem;line-height:1.6;color:#212121;box-shadow:inset 0 0 0 2px rgba(106,27,154,.12)}
+.emg-balao p{margin:0 0 9px}
+.emg-balao p:last-child{margin-bottom:0}
+.emg-balao b{color:#6a1b9a}
+.emg-balao ul{margin:6px 0 9px;padding-left:4px;list-style:none}
+.emg-balao li{margin:5px 0;padding-left:2px}
+.emg-btn{display:block;width:100%;margin-top:14px;padding:14px;border:none;border-radius:16px;font-size:1rem;font-weight:900;color:#fff;cursor:pointer;background:linear-gradient(135deg,#ff8f00,#ff3d00);box-shadow:0 10px 24px rgba(255,61,0,.45);animation:emgPulse 1.5s ease-in-out infinite}
+.emg-btn:active{transform:scale(.98)}
+.emg-selo{background:linear-gradient(90deg,#b71c1c,#e65100);color:#fff;font-size:.78rem;font-weight:900;text-align:center;padding:9px 12px;letter-spacing:.3px;cursor:pointer;border-radius:12px;margin:12px 0 0;animation:emgGlow 2s ease-in-out infinite}
+@keyframes emgFade{from{opacity:0}to{opacity:1}}
+@keyframes emgPop{0%{transform:scale(.7) translateY(30px);opacity:0}100%{transform:scale(1) translateY(0);opacity:1}}
+@keyframes emgBounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+@keyframes emgTilt{0%,100%{transform:rotate(-4deg)}50%{transform:rotate(4deg)}}
+@keyframes emgWave{0%,100%{transform:rotate(6deg)}50%{transform:rotate(-34deg)}}
+@keyframes emgBlink{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(.1)}}
+@keyframes emgFloat{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-9px) rotate(12deg)}}
+@keyframes emgGlow{0%,100%{filter:brightness(1)}50%{filter:brightness(1.25)}}
+@keyframes emgPulse{0%,100%{box-shadow:0 10px 24px rgba(255,61,0,.45)}50%{box-shadow:0 10px 34px rgba(255,61,0,.85)}}
+</style>
+<div class="emg-overlay" id="emgOverlay" onclick="if(event.target===this)fecharEmergencia()">
+  <div class="emg-card">
+    <div class="emg-sparkles" aria-hidden="true"><span>✨</span><span>🎉</span><span>⭐</span><span>🎊</span><span>✨</span><span>⭐</span></div>
+    <div class="emg-top">
+      <div class="emg-boneco">
+        <svg class="emg-svg" viewBox="0 0 140 150" width="128" height="137" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <ellipse cx="70" cy="142" rx="40" ry="7" fill="rgba(0,0,0,.25)"/>
+          <rect x="52" y="104" width="14" height="30" rx="7" fill="#3949ab"/>
+          <rect x="74" y="104" width="14" height="30" rx="7" fill="#3949ab"/>
+          <ellipse cx="59" cy="135" rx="13" ry="7" fill="#1a237e"/>
+          <ellipse cx="81" cy="135" rx="13" ry="7" fill="#1a237e"/>
+          <g class="emg-arm-left">
+            <rect x="24" y="74" width="14" height="36" rx="7" fill="#ffb300"/>
+            <circle cx="31" cy="112" r="9" fill="#ffcc80"/>
+          </g>
+          <rect x="38" y="66" width="64" height="46" rx="18" fill="#ff6f00"/>
+          <rect x="52" y="76" width="36" height="34" rx="9" fill="#ffffff"/>
+          <path d="M60 76 L70 88 L80 76" fill="none" stroke="#ffb300" stroke-width="3"/>
+          <g class="emg-arm-right">
+            <rect x="102" y="62" width="14" height="34" rx="7" fill="#ffb300"/>
+            <circle cx="109" cy="58" r="10" fill="#ffcc80"/>
+          </g>
+          <g class="emg-head">
+            <rect x="63" y="58" width="14" height="14" fill="#ffcc80"/>
+            <circle cx="70" cy="40" r="29" fill="#ffcc80"/>
+            <circle class="emg-eye" cx="59" cy="40" r="4.6" fill="#212121"/>
+            <circle class="emg-eye" cx="81" cy="40" r="4.6" fill="#212121"/>
+            <rect x="53" y="31" width="12" height="3" rx="1.5" fill="#5d4037"/>
+            <rect x="75" y="31" width="12" height="3" rx="1.5" fill="#5d4037"/>
+            <circle cx="50" cy="50" r="5.5" fill="#ffab91" opacity=".85"/>
+            <circle cx="90" cy="50" r="5.5" fill="#ffab91" opacity=".85"/>
+            <path d="M57 51 Q70 64 83 51" fill="none" stroke="#c62828" stroke-width="4" stroke-linecap="round"/>
+            <path d="M42 30 Q70 2 98 30 Z" fill="#1a237e"/>
+            <rect x="40" y="26" width="60" height="9" rx="4.5" fill="#283593"/>
+            <circle cx="70" cy="8" r="5" fill="#ffd54f"/>
+          </g>
+        </svg>
+      </div>
+    </div>
+    <div class="emg-title">🚨 REQUISIÇÃO EMERGENCIAL 🚨</div>
+    <div class="emg-balao">
+      <p>Oi, sou o <b>ELTON</b>! 😄 Você está entrando na <b>REQUISIÇÃO EMERGENCIAL</b>.</p>
+      <p>Fico feliz demais que as <b>vendas superaram nossas expectativas</b>! 🎉 Já estou liberando o portal pra você realizar seu pedido.</p>
+      <p>Ou está fora de hora, ou estamos fechados — então aqui vão umas orientações:</p>
+      <ul>
+        <li>👤 Apenas <b>você (líder)</b> e <b>alguém com você</b> poderão descer no estoque e pegar o que foi solicitado.</li>
+        <li>✅ Você mesmo hoje dará <b>baixa nas suas requisições</b> — atenção: <b>as baixas são automáticas</b>.</li>
+        <li>⚠️ <b>Apenas itens emergenciais, viu?</b> Amanhã o plantonista requisitará o necessário.</li>
+      </ul>
+      <p>Bom turno! Estou à disposição no <b>WhatsApp</b>. 📱</p>
+    </div>
+    <button class="emg-btn" onclick="fecharEmergencia()">🚀 ENTENDI, BORA!</button>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <!-- ===== CHAT COM O ESTOQUE (todos os usuários) ===== -->
@@ -1738,6 +1834,8 @@ function entrar(nome, setor, papel) {
     const sel = document.getElementById('fSetorSelect');
     if (setor) { sel.value = setor; loadFuncSetor(setor); }
     showPage('func-req');
+    _aplicarSeloEmergencia();
+    setTimeout(() => mostrarEmergencia(), 1100);
     // Escuta Firebase para rastreamento em tempo real
     if (db) { escutarRequisicoes(); escutarAvisos(); escutarExclusoes(); }
     // Carrega notificações locais salvas
@@ -1784,6 +1882,48 @@ function entrar(nome, setor, papel) {
   updateClock();
   renderAlertasEstoque();
   toast(`👋 Bem-vindo${isLogistica ? ', ' + nome + ' 🚚' : (isMaster ? ', Elton! 👑' : ', ' + nome + '!')}`, 2500);
+}
+
+// ================================================================
+// 🚨 MODO EMERGENCIAL — domingo (o dia todo), seg-sex após 15:40 e sáb após 11:50
+// ================================================================
+function _modoEmergencial(d){
+  d = d || new Date();
+  const dia = d.getDay(); // 0=domingo, 6=sábado
+  const mins = d.getHours()*60 + d.getMinutes();
+  if (dia === 0) return true;                 // domingo (o dia inteiro)
+  if (dia === 6) return mins >= (11*60+50);   // sábado a partir de 11:50
+  return mins >= (15*60+40);                  // segunda a sexta a partir de 15:40
+}
+function _emgJaVista(){ try { return sessionStorage.getItem('emgVista') === '1'; } catch(e){ return false; } }
+function _marcarEmgVista(){ try { sessionStorage.setItem('emgVista','1'); } catch(e){} }
+
+function _aplicarSeloEmergencia(){
+  if (!_modoEmergencial()) return;
+  const page = document.getElementById('page-func-req');
+  if (!page || document.getElementById('emgSelo')) return;
+  const selo = document.createElement('div');
+  selo.id = 'emgSelo';
+  selo.className = 'emg-selo';
+  selo.innerHTML = '🚨 REQUISIÇÃO EMERGENCIAL ATIVA — toque para ver as orientações';
+  selo.onclick = () => mostrarEmergencia(true);
+  page.insertBefore(selo, page.firstChild);
+}
+
+function mostrarEmergencia(forcar){
+  if (!_modoEmergencial()) return;
+  if (!forcar && _emgJaVista()) return;
+  const el = document.getElementById('emgOverlay');
+  if (!el) return;
+  el.classList.add('show');
+  document.body.style.overflow = 'hidden';
+  _marcarEmgVista();
+}
+
+function fecharEmergencia(){
+  const el = document.getElementById('emgOverlay');
+  if (el) el.classList.remove('show');
+  document.body.style.overflow = '';
 }
 
 function logout() {
@@ -4751,6 +4891,7 @@ function showPage(id) {
   if (id === 'recebimento') { limparRecebimento(); renderRecebimentosLocais(); }
   if (id === 'master-config') { atualizarStats(); renderHistoricoLocal(); renderCfgEstoquista(); }
   if (id === 'func-status') renderFuncReqStatus();
+  if (id === 'func-req') _aplicarSeloEmergencia();
   if (id === 'master-produtos') renderMasterProdutos();
   if (id === 'master-relatorios') renderRelatorios();
   if (id === 'master-devolucoes') renderMasterDevolucoes();
@@ -4913,7 +5054,7 @@ function escutarProdutosExtra() {
 // ================================================================
 // SISTEMA DE VERSÃO / ATUALIZAÇÃO DO APP
 // ================================================================
-const APP_VERSAO_LOCAL = '3.8.3'; // gestão de produtos com ❌ Remover / ❌ TODOS e ➕ Aplicar em TODOS
+const APP_VERSAO_LOCAL = '3.8.4'; // modo emergencial animado (domingo / após 15:40 seg-sex / após 11:50 sáb)
 const URL_CORRETA = 'https://controladoriaamano-prog.github.io/requisicao-elton';
 let appVersaoAnterior = null;
 
