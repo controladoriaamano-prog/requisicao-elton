@@ -931,9 +931,24 @@ body.tem-setor .req-card{border-left-color:var(--setor-cor,#1a237e)!important}
           <div style="margin-top:6px;font-size:.8rem">a partir de <input type="time" id="cfgEmgSabHora" value="11:50" style="padding:6px;border:2px solid var(--border);border-radius:8px"></div>
         </div>
       </div>
+      <div class="form-group" style="margin-top:12px">
+        <label>Título do aviso</label>
+        <input type="text" id="cfgEmgTitulo" style="width:100%;padding:9px;border:2px solid var(--border);border-radius:8px;font-size:.85rem">
+      </div>
+      <div class="form-group" style="margin-top:8px">
+        <label>Mensagem (use <b>**palavra**</b> para negrito e <b>- </b> no começo da linha para tópicos)</label>
+        <textarea id="cfgEmgMensagem" rows="10" style="width:100%;padding:9px;border:2px solid var(--border);border-radius:8px;font-size:.82rem;line-height:1.55;resize:vertical;font-family:inherit"></textarea>
+      </div>
+      <div class="form-group" style="margin-top:8px">
+        <label>Texto do botão</label>
+        <input type="text" id="cfgEmgBotao" style="width:100%;padding:9px;border:2px solid var(--border);border-radius:8px;font-size:.85rem">
+      </div>
       <div id="cfgEmgStatus" style="font-size:.82rem;margin:10px 0">Carregando...</div>
       <button class="btn btn-success btn-block" onclick="salvarEmergencia()">💾 Salvar modo emergencial</button>
-      <button class="btn btn-secondary btn-block" style="margin-top:8px" onclick="testarEmergencia()">👀 Ver como fica neste aparelho</button>
+      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+        <button class="btn btn-secondary" style="flex:1;min-width:150px" onclick="testarEmergencia()">👀 Ver como fica</button>
+        <button class="btn btn-secondary" style="flex:1;min-width:150px" onclick="restaurarMensagemEmergencia()">↩️ Restaurar padrão</button>
+      </div>
     </div>
   </div>
 
@@ -1915,12 +1930,60 @@ function entrar(nome, setor, papel) {
 // ================================================================
 // 🚨 MODO EMERGENCIAL — horários configuráveis pelo master (Config → Modo Emergencial)
 // ================================================================
+// Textos padrão do modo emergencial (editáveis pelo master)
+const EMG_TITULO_PADRAO = '🚨 REQUISIÇÃO EMERGENCIAL 🚨';
+const EMG_BOTAO_PADRAO = '🚀 ENTENDI, BORA!';
+const EMG_MSG_PADRAO = [
+  'Oi, sou o **ELTON**! 😄 Você está entrando na **REQUISIÇÃO EMERGENCIAL**.',
+  '',
+  'Fico feliz demais que as **vendas superaram nossas expectativas**! 🎉 Já estou liberando o portal pra você realizar seu pedido.',
+  '',
+  'Ou está fora de hora, ou estamos fechados — então aqui vão umas orientações:',
+  '',
+  '- 👤 Apenas **você (líder)** e **alguém com você** poderão descer no estoque e pegar o que foi solicitado.',
+  '- ✅ Você mesmo hoje dará **baixa nas suas requisições** — atenção: **as baixas são automáticas**.',
+  '- ⚠️ **Apenas itens emergenciais, viu?** Amanhã o plantonista requisitará o necessário.',
+  '',
+  'Bom turno! Estou à disposição no **WhatsApp**. 📱'
+].join('\n');
+
 let _emgCfg = {
   ativo: true,
   dom: { ativo: true, todoDia: true, hora: '00:00' },
   sem: { ativo: true, hora: '15:40' },   // segunda a sexta
-  sab: { ativo: true, hora: '11:50' }    // sábado
+  sab: { ativo: true, hora: '11:50' },   // sábado
+  titulo: EMG_TITULO_PADRAO,
+  mensagem: EMG_MSG_PADRAO,
+  botao: EMG_BOTAO_PADRAO
 };
+
+// Converte a mensagem digitada pelo master em HTML seguro:
+// linhas iniciadas por "- " ou "• " viram tópicos e **palavra** vira negrito.
+function _emgEscHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function _emgFmt(texto){
+  const linhas = String(texto||'').split(/\r?\n/);
+  const inline = t => _emgEscHtml(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+  let html='', inList=false;
+  linhas.forEach(linha => {
+    if (/^\s*[-•]\s+/.test(linha)) {
+      if (!inList) { html += '<ul>'; inList = true; }
+      html += '<li>' + inline(linha.replace(/^\s*[-•]\s+/, '')) + '</li>';
+    } else {
+      if (inList) { html += '</ul>'; inList = false; }
+      if (linha.trim()) html += '<p>' + inline(linha) + '</p>';
+    }
+  });
+  if (inList) html += '</ul>';
+  return html;
+}
+function _aplicarTextosEmergencia(){
+  const tit = document.querySelector('#emgOverlay .emg-title');
+  if (tit) tit.textContent = (_emgCfg.titulo && String(_emgCfg.titulo).trim()) || EMG_TITULO_PADRAO;
+  const bal = document.querySelector('#emgOverlay .emg-balao');
+  if (bal) bal.innerHTML = _emgFmt(_emgCfg.mensagem || EMG_MSG_PADRAO);
+  const btn = document.querySelector('#emgOverlay .emg-btn');
+  if (btn) btn.textContent = (_emgCfg.botao && String(_emgCfg.botao).trim()) || EMG_BOTAO_PADRAO;
+}
 function _emgHHMM(s){ const m=/^(\d{1,2}):(\d{2})$/.exec(s||''); return m ? (parseInt(m[1])*60+parseInt(m[2])) : 0; }
 function _modoEmergencial(d){
   d = d || new Date();
@@ -1943,8 +2006,13 @@ function escutarEmergencia(){
         ativo: v.ativo !== false,
         dom: { ativo: !(v.dom && v.dom.ativo === false), todoDia: !(v.dom && v.dom.todoDia === false), hora: (v.dom && v.dom.hora) || '00:00' },
         sem: { ativo: !(v.sem && v.sem.ativo === false), hora: (v.sem && v.sem.hora) || '15:40' },
-        sab: { ativo: !(v.sab && v.sab.ativo === false), hora: (v.sab && v.sab.hora) || '11:50' }
+        sab: { ativo: !(v.sab && v.sab.ativo === false), hora: (v.sab && v.sab.hora) || '11:50' },
+        titulo: (v.titulo !== undefined && v.titulo !== null) ? v.titulo : EMG_TITULO_PADRAO,
+        mensagem: (v.mensagem !== undefined && v.mensagem !== null) ? v.mensagem : EMG_MSG_PADRAO,
+        botao: (v.botao !== undefined && v.botao !== null) ? v.botao : EMG_BOTAO_PADRAO
       };
+    } else {
+      _emgCfg.titulo = EMG_TITULO_PADRAO; _emgCfg.mensagem = EMG_MSG_PADRAO; _emgCfg.botao = EMG_BOTAO_PADRAO;
     }
     atualizarCfgEmg();
     _aplicarSeloEmergencia();
@@ -1961,6 +2029,10 @@ function atualizarCfgEmg(){
   val('cfgEmgSemHora', _emgCfg.sem.hora || '15:40');
   set('cfgEmgSabAtivo', _emgCfg.sab.ativo !== false);
   val('cfgEmgSabHora', _emgCfg.sab.hora || '11:50');
+  val('cfgEmgTitulo', _emgCfg.titulo || EMG_TITULO_PADRAO);
+  val('cfgEmgMensagem', _emgCfg.mensagem || EMG_MSG_PADRAO);
+  val('cfgEmgBotao', _emgCfg.botao || EMG_BOTAO_PADRAO);
+  _aplicarTextosEmergencia();
   const st=document.getElementById('cfgEmgStatus');
   if (!st) return;
   if (_emgCfg.ativo === false) { st.innerHTML='<span style="color:#c62828;font-weight:800">🔴 Desativado</span>'; return; }
@@ -1976,6 +2048,9 @@ function salvarEmergencia(){
     dom: { ativo: !!document.getElementById('cfgEmgDomAtivo')?.checked, todoDia: !!document.getElementById('cfgEmgDomTodo')?.checked, hora: document.getElementById('cfgEmgDomHora')?.value || '00:00' },
     sem: { ativo: !!document.getElementById('cfgEmgSemAtivo')?.checked, hora: document.getElementById('cfgEmgSemHora')?.value || '15:40' },
     sab: { ativo: !!document.getElementById('cfgEmgSabAtivo')?.checked, hora: document.getElementById('cfgEmgSabHora')?.value || '11:50' },
+    titulo: document.getElementById('cfgEmgTitulo')?.value || EMG_TITULO_PADRAO,
+    mensagem: document.getElementById('cfgEmgMensagem')?.value || EMG_MSG_PADRAO,
+    botao: document.getElementById('cfgEmgBotao')?.value || EMG_BOTAO_PADRAO,
     por: usuarioAtual, ts: Date.now()
   };
   _emgCfg = cfg;
@@ -1985,6 +2060,12 @@ function salvarEmergencia(){
     .catch(e=>toast('Erro: '+e.message));
 }
 function testarEmergencia(){ mostrarEmergencia(true); }
+function restaurarMensagemEmergencia(){
+  const t=document.getElementById('cfgEmgTitulo'); if(t) t.value=EMG_TITULO_PADRAO;
+  const m=document.getElementById('cfgEmgMensagem'); if(m) m.value=EMG_MSG_PADRAO;
+  const b=document.getElementById('cfgEmgBotao'); if(b) b.value=EMG_BOTAO_PADRAO;
+  toast('↩️ Texto padrão restaurado — clique em Salvar para aplicar');
+}
 function _emgJaVista(){ try { return sessionStorage.getItem('emgVista') === '1'; } catch(e){ return false; } }
 function _marcarEmgVista(){ try { sessionStorage.setItem('emgVista','1'); } catch(e){} }
 
@@ -2005,6 +2086,7 @@ function mostrarEmergencia(forcar){
   if (!forcar && _emgJaVista()) return;
   const el = document.getElementById('emgOverlay');
   if (!el) return;
+  _aplicarTextosEmergencia();
   el.classList.add('show');
   document.body.style.overflow = 'hidden';
   _marcarEmgVista();
@@ -5144,7 +5226,7 @@ function escutarProdutosExtra() {
 // ================================================================
 // SISTEMA DE VERSÃO / ATUALIZAÇÃO DO APP
 // ================================================================
-const APP_VERSAO_LOCAL = '3.8.5'; // horários do modo emergencial configuráveis pelo master
+const APP_VERSAO_LOCAL = '3.8.6'; // mensagem do modo emergencial editável pelo master
 const URL_CORRETA = 'https://controladoriaamano-prog.github.io/requisicao-elton';
 let appVersaoAnterior = null;
 
