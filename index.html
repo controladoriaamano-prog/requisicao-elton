@@ -936,7 +936,7 @@ body.tem-setor .req-card{border-left-color:var(--setor-cor,#1a237e)!important}
   <div class="card">
     <div class="card-header">🧩 SUB-SETORES DA COZINHA</div>
     <div class="modal-body">
-      <p style="font-size:.8rem;color:var(--muted);margin-bottom:10px">Sub-setores exibidos na aba COZINHA (todos usam a mesma lista de itens da Cozinha).</p>
+      <p style="font-size:.8rem;color:var(--muted);margin-bottom:10px">Sub-setores exibidos na aba COZINHA. Por padrão usam a lista da Cozinha; o <b>REFEITÓRIO</b> tem lista de itens própria.</p>
       <div id="cfgSubsetoresList"></div>
       <div style="display:flex;gap:8px;margin-top:10px">
         <input type="text" id="cfgNovoSub" placeholder="Novo sub-setor..." style="flex:1;padding:9px;border:2px solid var(--border);border-radius:8px">
@@ -1020,6 +1020,7 @@ body.tem-setor .req-card{border-left-color:var(--setor-cor,#1a237e)!important}
               <option value="CONFEITARIA">CONFEITARIA</option>
               <option value="BAR">BAR</option>
               <option value="COZINHA">COZINHA</option>
+              <option value="REFEITORIO">COZINHA · REFEITÓRIO (lista própria)</option>
             </select>
           </div>
           <div class="form-group">
@@ -1442,6 +1443,24 @@ let alertasEstoqueSnapshot = {};
 const SETORES_ATIVOS = ['MASSARIA','LIMPEZA','CONFEITARIA','BAR','COZINHA'];
 
 function getSubSetores(setor){ return (SUBSETORES && SUBSETORES[setor]) ? SUBSETORES[setor] : []; }
+
+// 🧩 Sub-setor com lista de itens própria (ex.: COZINHA › REFEITÓRIO usa a lista do REFEITORIO)
+function _normSubKey(s){ return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Za-z0-9]/g,'').toUpperCase(); }
+function _dataKeyFor(setor, subSetor){
+  const k = _normSubKey(subSetor);
+  if (k && DATA && DATA[k]) return k;
+  return setor;
+}
+function catsFor(setor, subSetor){ return DATA[_dataKeyFor(setor, subSetor)] || []; }
+// Catálogos de um setor: a lista principal + a lista própria de cada sub-setor (ex.: REFEITÓRIO)
+function _catalogsForSetor(setor){
+  const out = [{label:setor, cats:DATA[setor]||[]}];
+  (getSubSetores(setor)||[]).forEach(sub => {
+    const dk = _dataKeyFor(setor, sub);
+    if (dk !== setor && DATA[dk]) out.push({label:setor+' · '+sub, cats:DATA[dk]});
+  });
+  return out;
+}
 function isEstoquistaName(nome){
   const n = normalizarNome(nome);
   if (!n || !ESTOQUISTA || !ESTOQUISTA.nome) return false;
@@ -2439,7 +2458,7 @@ function calcStatusGeral(req) {
 
 function renderReqBody(id, req) {
   const itemMap = {};
-  (DATA[req.setor]||[]).forEach(cat => cat.itens.forEach(item => {
+  (catsFor(req.setor, req.subSetor)||[]).forEach(cat => cat.itens.forEach(item => {
     itemMap[item.cod+'_'+item.nome.replace(/[^a-zA-Z0-9]/g,'')] = item;
   }));
   (req.extras||[]).forEach((ex,i) => { itemMap['extra_'+i] = {cod:ex.cod, nome:ex.nome}; });
@@ -2736,7 +2755,7 @@ function editarRequisicao(reqId) {
 
   // Monta lista de itens editáveis
   const itemMap = {};
-  (DATA[req.setor]||[]).forEach(cat => cat.itens.forEach(item => {
+  (catsFor(req.setor, req.subSetor)||[]).forEach(cat => cat.itens.forEach(item => {
     itemMap[item.cod+'_'+item.nome.replace(/[^a-zA-Z0-9]/g,'')] = item;
   }));
   (req.extras||[]).forEach((ex,i) => { itemMap['extra_'+i] = {cod:ex.cod, nome:ex.nome}; });
@@ -3215,7 +3234,7 @@ function renderFuncReqStatus() {
 
     // Itens com status de baixa
     const itemMap={};
-    (DATA[req.setor]||[]).forEach(cat=>cat.itens.forEach(item=>{itemMap[item.cod+'_'+item.nome.replace(/[^a-zA-Z0-9]/g,'')]=item;}));
+    (catsFor(req.setor, req.subSetor)||[]).forEach(cat=>cat.itens.forEach(item=>{itemMap[item.cod+'_'+item.nome.replace(/[^a-zA-Z0-9]/g,'')]=item;}));
     (req.extras||[]).forEach((ex,i)=>{itemMap['extra_'+i]={cod:ex.cod,nome:ex.nome};});
     let detailHtml = '';
     Object.entries(req.itens||{}).forEach(([key,qty])=>{
@@ -3707,6 +3726,16 @@ function _relItemMapGlobal() {
       map[setor+'||'+item.cod+'_'+item.nome.replace(/[^a-zA-Z0-9]/g,'')] = {cod:item.cod, nome:item.nome, setor};
     }));
   });
+  // 🧩 Sub-setores com lista própria entram sob a chave do setor-pai (ex.: COZINHA · REFEITÓRIO)
+  Object.keys(SUBSETORES||{}).forEach(base => {
+    (SUBSETORES[base]||[]).forEach(sub => {
+      const dk = _dataKeyFor(base, sub);
+      if (dk === base) return;
+      (DATA[dk]||[]).forEach(cat => cat.itens.forEach(item => {
+        map[base+'||'+item.cod+'_'+item.nome.replace(/[^a-zA-Z0-9]/g,'')] = {cod:item.cod, nome:item.nome, setor:base, subSetor:sub};
+      }));
+    });
+  });
   return map;
 }
 
@@ -3862,13 +3891,15 @@ function renderRelatorios() {
     const setoresParaChecar = setorFiltro ? [setorFiltro] : SETORES_ATIVOS.filter(s=>(DATA||{})[s]);
     const parados = [];
     setoresParaChecar.forEach(setor => {
-      (DATA[setor]||[]).forEach(cat => cat.itens.forEach(item => {
-        const gkey = setor+'||'+item.cod+'_'+item.nome.replace(/[^a-zA-Z0-9]/g,'');
-        const ultima = ultimaDataItemSetor[gkey];
-        if (!ultima || ultima < LIMIAR_30D) {
-          parados.push({cod:item.cod, nome:item.nome, setor, ultima});
-        }
-      }));
+      _catalogsForSetor(setor).forEach(cat0 => {
+        cat0.cats.forEach(cat => cat.itens.forEach(item => {
+          const gkey = setor+'||'+item.cod+'_'+item.nome.replace(/[^a-zA-Z0-9]/g,'');
+          const ultima = ultimaDataItemSetor[gkey];
+          if (!ultima || ultima < LIMIAR_30D) {
+            parados.push({cod:item.cod, nome:item.nome, setor:cat0.label, ultima});
+          }
+        }));
+      });
     });
     parados.sort((a,b) => (a.ultima||0) - (b.ultima||0));
     const paradosLimit = parados.slice(0, 40);
@@ -4069,14 +4100,28 @@ function loadFuncSetor(setor) {
 function saveFuncSubSetor(){
   const setor = document.getElementById('fSetorSelect')?.value; if (!setor) return;
   ensureReq(setor);
-  localState.req[setor].subSetor = document.getElementById('fReqSubSetor')?.value || '';
+  const novo = document.getElementById('fReqSubSetor')?.value || '';
+  const antigo = localState.req[setor].subSetor || '';
+  if (novo !== antigo) {
+    // 🧩 A lista de itens muda conforme o sub-setor (ex.: REFEITÓRIO tem lista própria).
+    // Evita misturar itens de listas diferentes (há códigos repetidos).
+    const temSelecao = Object.keys(localState.req[setor].itens||{}).length > 0 || (localState.req[setor].extras||[]).length > 0;
+    if (temSelecao && !confirm('Trocar o sub-setor para ' + (novo || '—') + '?\nA lista de itens muda e a seleção atual será limpa.')) {
+      const selEl = document.getElementById('fReqSubSetor'); if (selEl) selEl.value = antigo;
+      return;
+    }
+    localState.req[setor].itens = {};
+    localState.req[setor].extras = [];
+    localState.req[setor].unidades = {};
+  }
+  localState.req[setor].subSetor = novo;
   saveLocalState();
   renderFuncReqItems(setor);
 }
 
 function renderFuncReqItems(setor) {
-  const cats = DATA[setor] || [];
   const s = localState.req[setor] || {itens:{},extras:[],unidades:{}};
+  const cats = catsFor(setor, s.subSetor);
   let banners = '';
   // 🔒 Banner de conferência obrigatória pendente
   const pend = temConferenciaPendente();
@@ -4091,8 +4136,10 @@ function renderFuncReqItems(setor) {
   const _subs = getSubSetores(setor);
   if (_subs.length) {
     const subAtual = s.subSetor || '';
+    const _catsKey = _dataKeyFor(setor, subAtual);
+    const _listaLabel = (_catsKey === setor) ? ('itens da ' + setor) : ('itens próprios do ' + subAtual);
     banners += `<div class="info-banner" style="background:${subAtual?'#e8f5e9':'#fff8e1'};border-left:5px solid ${subAtual?'#2e7d32':'#e65100'};margin:0 0 12px">
-      🧩 Sub-setor: <b>${subAtual ? _esc(subAtual) : 'não selecionado'}</b> — ${subAtual ? 'itens da COZINHA' : 'selecione o sub-setor acima para liberar o envio'}</div>`;
+      🧩 Sub-setor: <b>${subAtual ? _esc(subAtual) : 'não selecionado'}</b> — ${subAtual ? _esc(_listaLabel) : 'selecione o sub-setor acima para liberar o envio'}</div>`;
   }
   // ✅ Banner de espelho (requisição enviada, itens mantidos)
   if (s.enviadaEm) {
@@ -4579,10 +4626,11 @@ function renderMasterEstoque(setor, query) {
   });
   let html = '';
   setores.forEach(s => {
-    DATA[s].forEach(cat => {
+    _catalogsForSetor(s).forEach(cat0 => {
+    cat0.cats.forEach(cat => {
       const filtered = cat.itens.filter(item => !query||item.nome.toLowerCase().includes(query)||item.cod.toLowerCase().includes(query));
       if (!filtered.length) return;
-      html += `<div class="cat-title">📦 ${s} › ${cat.categoria}</div>`;
+      html += `<div class="cat-title">📦 ${cat0.label} › ${cat.categoria}</div>`;
       filtered.forEach(item => {
         const key = item.cod+'_'+item.nome.replace(/[^a-zA-Z0-9]/g,'');
         const rq = reqAgg[s]?.[key]||0;
@@ -4594,6 +4642,7 @@ function renderMasterEstoque(setor, query) {
           ${cq!==undefined&&cq!==''?`<span style="font-size:.75rem;background:#e3f2fd;color:#1565c0;padding:2px 8px;border-radius:10px">Est: ${cq}</span>`:''}
         </div>`;
       });
+    });
     });
   });
   if (!html) html = '<div class="empty"><p>Nenhum item encontrado</p></div>';
@@ -4609,7 +4658,7 @@ function gerarPDFRequisicao() {
   const s = localState.req?.[setor];
   if (!s||!Object.keys(s.itens||{}).filter(k=>(s.itens[k]||0)>0).length) { toast('Nenhum item requisitado'); return; }
   const itemMap={};
-  (DATA[setor]||[]).forEach(cat=>cat.itens.forEach(item=>{itemMap[item.cod+'_'+item.nome.replace(/[^a-zA-Z0-9]/g,'')]=item;}));
+  (catsFor(setor, s.subSetor)||[]).forEach(cat=>cat.itens.forEach(item=>{itemMap[item.cod+'_'+item.nome.replace(/[^a-zA-Z0-9]/g,'')]=item;}));
   (s.extras||[]).forEach((ex,i)=>{itemMap['extra_'+i]={cod:ex.cod,nome:ex.nome};});
   const now=new Date(),d=now.toLocaleDateString('pt-BR'),h=now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
   let rows='';
@@ -4630,7 +4679,7 @@ function gerarPDFRequisicao() {
 function gerarPDFBaixas(reqId) {
   const req = reqsSnapshot[reqId]; if (!req) return;
   const itemMap={};
-  (DATA[req.setor]||[]).forEach(cat=>cat.itens.forEach(item=>{itemMap[item.cod+'_'+item.nome.replace(/[^a-zA-Z0-9]/g,'')]=item;}));
+  (catsFor(req.setor, req.subSetor)||[]).forEach(cat=>cat.itens.forEach(item=>{itemMap[item.cod+'_'+item.nome.replace(/[^a-zA-Z0-9]/g,'')]=item;}));
   (req.extras||[]).forEach((ex,i)=>{itemMap['extra_'+i]={cod:ex.cod,nome:ex.nome};});
   const d=new Date(req.timestamp).toLocaleDateString('pt-BR');
   const h=new Date(req.timestamp).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
@@ -4741,7 +4790,7 @@ function renderMasterProdutos() {
     return;
   }
   const query = (document.getElementById('prodSearch')?.value || '').toLowerCase();
-  if (title) title.textContent = '📋 ' + setor + ' — Lista de Produtos';
+  if (title) title.textContent = '📋 ' + (setor === 'REFEITORIO' ? 'COZINHA · REFEITÓRIO' : setor) + ' — Lista de Produtos';
 
   const cats = DATA[setor] || [];
   if (!cats.length) { area.innerHTML = '<div class="empty"><p>Nenhum produto encontrado</p></div>'; return; }
@@ -4806,8 +4855,8 @@ function adicionarProduto(enviarAviso_) {
       const aviso = {
         tipo: 'new-product',
         titulo: '🆕 Novo Produto Adicionado',
-        corpo: 'Produto <strong>' + nome + '</strong> (cód. ' + cod + ') foi adicionado ao setor ' + setor + '. Já disponível para requisição!',
-        destino: setor,
+        corpo: 'Produto <strong>' + nome + '</strong> (cód. ' + cod + ') foi adicionado ao setor ' + (setor === 'REFEITORIO' ? 'COZINHA · REFEITÓRIO' : setor) + '. Já disponível para requisição!',
+        destino: (setor === 'REFEITORIO' ? 'COZINHA' : setor),
         autor: usuarioAtual || 'Master',
         timestamp: Date.now()
       };
@@ -4849,7 +4898,7 @@ function escutarProdutosExtra() {
 // ================================================================
 // SISTEMA DE VERSÃO / ATUALIZAÇÃO DO APP
 // ================================================================
-const APP_VERSAO_LOCAL = '3.8.1'; // + registro de push FCM (Web Push) para notificar com o app fechado
+const APP_VERSAO_LOCAL = '3.8.2'; // sub-setor REFEITÓRIO da COZINHA com lista de itens própria
 const URL_CORRETA = 'https://controladoriaamano-prog.github.io/requisicao-elton';
 let appVersaoAnterior = null;
 
@@ -5457,7 +5506,7 @@ function enviarMensagemChat(){
 // ================================================================
 function _reqItemMap(req){
   const itemMap = {};
-  (DATA[req.setor]||[]).forEach(cat => cat.itens.forEach(item => {
+  (catsFor(req.setor, req.subSetor)||[]).forEach(cat => cat.itens.forEach(item => {
     itemMap[item.cod+'_'+item.nome.replace(/[^a-zA-Z0-9]/g,'')] = item;
   }));
   (req.extras||[]).forEach((ex,i) => { itemMap['extra_'+i] = {cod:ex.cod||'--', nome:ex.nome}; });
