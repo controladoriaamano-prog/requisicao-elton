@@ -1667,12 +1667,38 @@ function fazerLogin() {
   entrar(nome, ehMaster ? null : setorSel, ehMaster ? 'master' : 'funcionario');
 }
 
+// ================================================================
+// 💾 SESSÃO PERSISTENTE — mantém logado após bloquear a tela / atualizar / fechar
+// ================================================================
+const SESSION_KEY = 'reqElton_sessao';
+const SESSION_DIAS = 30;
+function salvarSessao(nome, setor, papel){
+  try {
+    localStorage.setItem(SESSION_KEY, JSON.stringify({
+      nome, setor: setor || null, papel: papel || 'funcionario', ts: Date.now()
+    }));
+  } catch(e) {}
+}
+function limparSessao(){ try { localStorage.removeItem(SESSION_KEY); } catch(e) {} }
+function tentarAutoLogin(){
+  if (usuarioAtual) return;
+  let sess = null;
+  try { sess = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); } catch(e) {}
+  if (!sess || !sess.nome) return;
+  if (Date.now() - (sess.ts || 0) > SESSION_DIAS * 86400000) { limparSessao(); return; }
+  if ((sess.papel || 'funcionario') === 'funcionario' && !sess.setor) { limparSessao(); return; }
+  try {
+    entrar(sess.nome, sess.setor || null, sess.papel || 'funcionario');
+  } catch(e) { limparSessao(); }
+}
+
 function entrar(nome, setor, papel) {
   usuarioAtual = nome;
   setorUsuario = setor;
   papel = papel || (isMasterName(nome) ? 'master' : 'funcionario');
   isLogistica = (papel === 'logistica');
   isMaster = (papel === 'master' || papel === 'logistica'); // gestão (master ou logística)
+  salvarSessao(nome, setor, isLogistica ? 'logistica' : (isMaster ? 'master' : 'funcionario'));
 
   // Carrega estado local
   try {
@@ -1761,6 +1787,7 @@ function logout() {
   fecharChat();
   aplicarTemaSetor(null);
   usuarioAtual = null; setorUsuario = null; isMaster = false; isLogistica = false;
+  limparSessao();
   localState = {}; reqsSnapshot = {}; contagensSnapshot = {};
   { const ln = document.getElementById('loginLogNome'); if (ln) ln.value=''; const ls = document.getElementById('loginLogSenha'); if (ls) ls.value=''; setLoginMode('colab'); }
   funcPrevStatus = {}; funcPrimeiraExibicao = true;
@@ -5600,7 +5627,7 @@ function escutarProdutosExtra() {
 // ================================================================
 // SISTEMA DE VERSÃO / ATUALIZAÇÃO DO APP
 // ================================================================
-const APP_VERSAO_LOCAL = '3.11.0'; // Cozinha: PRÓXIMO SETOR abre menu de sub-setores; envio único só ao confirmar
+const APP_VERSAO_LOCAL = '3.12.0'; // Mantém logado após bloquear/atualizar + Cozinha com menu de sub-setor e envio único
 const URL_CORRETA = 'https://controladoriaamano-prog.github.io/requisicao-elton';
 let appVersaoAnterior = null;
 
@@ -5792,6 +5819,8 @@ function remSubsetor(i){ const subs=getSubSetores('COZINHA'); subs.splice(i,1); 
 (function init() {
   // Vai direto para o login usando as credenciais fixas
   initFirebase(FIREBASE_CONFIG);
+  // 💾 Se este aparelho já tinha sessão, entra automaticamente (sem pedir login de novo)
+  setTimeout(tentarAutoLogin, 600);
 })();
 
 // ================================================================
